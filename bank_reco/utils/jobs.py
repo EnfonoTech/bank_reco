@@ -5,20 +5,32 @@ State lives in the site's Redis cache for a couple of hours; the browser polls
 real result of every job is in the database (Bank Transactions, action log).
 """
 
+import json
+
 import frappe
 
 KEY_PREFIX = "bank_reco_job::"
 TTL_SECONDS = 2 * 60 * 60
 
 
+# Plain Redis get/set on purpose: ``cache().get_value`` remembers a miss in the
+# process-local request cache, so a job that reads before it writes would never
+# see its own later writes.
+def _key(job_id):
+	return frappe.cache().make_key(KEY_PREFIX + job_id)
+
+
 def get_job(job_id):
-	return frappe.cache().get_value(KEY_PREFIX + job_id)
+	raw = frappe.cache().get(_key(job_id))
+	if not raw:
+		return None
+	return json.loads(raw.decode() if isinstance(raw, bytes) else raw)
 
 
 def set_job(job_id, **values):
 	current = get_job(job_id) or {}
 	current.update(values)
-	frappe.cache().set_value(KEY_PREFIX + job_id, current, expires_in_sec=TTL_SECONDS)
+	frappe.cache().set(_key(job_id), json.dumps(current, default=str), ex=TTL_SECONDS)
 	return current
 
 

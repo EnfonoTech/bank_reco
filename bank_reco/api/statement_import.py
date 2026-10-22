@@ -25,7 +25,7 @@ from bank_reco.api.permission import (
 	log_unexpected_api_exception,
 	require_bank_rec_permission,
 )
-from bank_reco.utils.jobs import new_job, set_job
+from bank_reco.utils.jobs import get_job, new_job, set_job
 from bank_reco.bank_reco.doctype.bank_statement_importer.bank_statement_importer import (
 	build_table,
 	flip_amount_for_credit_card,
@@ -211,7 +211,7 @@ def parse_statement(file_url, bank_account):
 				withdrawal_select=saved["withdrawal"],
 				amount_select="",
 			)
-	if saved.get("date_format"):
+	if saved.get("date") in headers and saved.get("date_format") and saved["date_format"] != "Auto":
 		guessed["date_format"] = saved["date_format"]
 
 	return {
@@ -457,7 +457,7 @@ def _run_import(job_id, file_url, bank_account, mapping, skip_duplicates, save_m
 				_auto_reconcile(sub_id, bank_account, from_date, to_date, False)
 				extras["auto_reconcile"] = {
 					key: value
-					for key, value in (frappe.cache().get_value("bank_reco_job::" + sub_id) or {}).items()
+					for key, value in (get_job(sub_id) or {}).items()
 					if key in ("matched", "ambiguous", "no_match", "failed", "batch_id")
 				}
 			except Exception:
