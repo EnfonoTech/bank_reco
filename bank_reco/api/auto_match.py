@@ -39,8 +39,17 @@ _DEFAULTS = {
 }
 
 
+def _stored(field):
+	"""Raw saved value of a settings field, or None when it was never saved."""
+	rows = frappe.db.sql(
+		"select `value` from `tabSingles` where `doctype` = %s and `field` = %s",
+		(SETTINGS, field),
+	)
+	return rows[0][0] if rows else None
+
+
 def _single(field):
-	value = frappe.db.get_value("Singles", {"doctype": SETTINGS, "field": field}, "value")
+	value = _stored(field)
 	return _DEFAULTS[field] if value in (None, "") else cint(value)
 
 
@@ -247,4 +256,4 @@ def scheduled_auto_reconcile():
 
 
 def _single_flag(field):
-	return bool(cint(frappe.db.get_value("Singles", {"doctype": SETTINGS, "field": field}, "value")))
+	return bool(cint(_stored(field)))
