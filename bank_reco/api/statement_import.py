@@ -1,4 +1,4 @@
-"""Statement import from inside the Bank Rec screen.
+"""Statement import from inside the Bank Reco screen.
 
 Three steps, all server side so the browser never holds the whole file:
 
@@ -355,7 +355,7 @@ def import_statement(
 		)
 		return {"job_id": job_id}
 	except Exception as exc:
-		log_unexpected_api_exception(exc, "Bank Rec import_statement failed", rollback=True)
+		log_unexpected_api_exception(exc, "Bank Reco import_statement failed", rollback=True)
 		raise
 
 

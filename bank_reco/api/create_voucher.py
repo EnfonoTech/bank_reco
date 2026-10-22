@@ -249,7 +249,7 @@ def create_voucher_from_transaction(bank_transaction_name, payload):
 		return _create_voucher_from_transaction(bank_transaction_name, payload)
 	except Exception as exc:
 		log_unexpected_api_exception(
-			exc, "Bank Rec create_voucher_from_transaction failed", rollback=True
+			exc, "Bank Reco create_voucher_from_transaction failed", rollback=True
 		)
 		raise
 
@@ -299,7 +299,7 @@ def create_voucher_draft_from_transaction(bank_transaction_name, payload):
 		return _create_voucher_draft_from_transaction(bank_transaction_name, payload)
 	except Exception as exc:
 		log_unexpected_api_exception(
-			exc, "Bank Rec create_voucher_draft_from_transaction failed", rollback=True
+			exc, "Bank Reco create_voucher_draft_from_transaction failed", rollback=True
 		)
 		raise
 

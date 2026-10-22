@@ -124,7 +124,7 @@ def undo_action(log_name):
 		result = _undo_group(log.bank_transaction, log.batch_id)
 		return {"results": [result], "summary": _summary([result])}
 	except Exception as exc:
-		log_unexpected_api_exception(exc, "Bank Rec undo_action failed", rollback=True)
+		log_unexpected_api_exception(exc, "Bank Reco undo_action failed", rollback=True)
 		raise
 
 
@@ -152,7 +152,7 @@ def undo_batch(batch_id):
 		except Exception as exc:
 			frappe.db.rollback(save_point=savepoint)
 			if not _is_expected(exc):
-				frappe.log_error(title="Bank Rec undo_batch failed", message=frappe.get_traceback())
+				frappe.log_error(title="Bank Reco undo_batch failed", message=frappe.get_traceback())
 			results.append(
 				{
 					"bank_transaction": name,

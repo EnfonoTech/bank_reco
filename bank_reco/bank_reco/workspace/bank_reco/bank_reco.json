@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\": \"brh1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Bank Reco</b></span>\", \"col\": 12}}, {\"id\": \"brs0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Rec\", \"col\": 3}}, {\"id\": \"brs1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Coding\", \"col\": 3}}, {\"id\": \"brs2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"History / Undo\", \"col\": 3}}, {\"id\": \"brs3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Reports\", \"col\": 3}}, {\"id\": \"brs4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Transaction\", \"col\": 3}}, {\"id\": \"brs5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Rules\", \"col\": 3}}, {\"id\": \"brs6\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"User Guide\", \"col\": 3}}, {\"id\": \"brsp1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"brh2\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; Setup</b></span>\", \"col\": 12}}, {\"id\": \"brc0\", \"type\": \"card\", \"data\": {\"card_name\": \"Reconcile\", \"col\": 4}}, {\"id\": \"brc1\", \"type\": \"card\", \"data\": {\"card_name\": \"Rules\", \"col\": 4}}, {\"id\": \"brc2\", \"type\": \"card\", \"data\": {\"card_name\": \"Audit\", \"col\": 4}}, {\"id\": \"brc3\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}]",
+ "content": "[{\"id\": \"brh1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Bank Reco</b></span>\", \"col\": 12}}, {\"id\": \"brs0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Reco\", \"col\": 3}}, {\"id\": \"brs1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Coding\", \"col\": 3}}, {\"id\": \"brs2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"History / Undo\", \"col\": 3}}, {\"id\": \"brs3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Reports\", \"col\": 3}}, {\"id\": \"brs4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Transaction\", \"col\": 3}}, {\"id\": \"brs5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Rules\", \"col\": 3}}, {\"id\": \"brs6\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"User Guide\", \"col\": 3}}, {\"id\": \"brsp1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"brh2\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; Setup</b></span>\", \"col\": 12}}, {\"id\": \"brc0\", \"type\": \"card\", \"data\": {\"card_name\": \"Reconcile\", \"col\": 4}}, {\"id\": \"brc1\", \"type\": \"card\", \"data\": {\"card_name\": \"Rules\", \"col\": 4}}, {\"id\": \"brc2\", \"type\": \"card\", \"data\": {\"card_name\": \"Audit\", \"col\": 4}}, {\"id\": \"brc3\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}]",
  "creation": "2026-10-22 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -123,7 +123,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-22 16:00:00.000000",
+ "modified": "2026-10-22 19:30:00.000000",
  "modified_by": "Administrator",
  "module": "Bank Reco",
  "name": "Bank Reco",
@@ -149,7 +149,7 @@
    "color": "Green",
    "doc_view": "",
    "format": "",
-   "label": "Bank Rec",
+   "label": "Bank Reco",
    "type": "URL",
    "url": "/bank-rec/reconcile"
   },

@@ -40,7 +40,7 @@ def has_bank_rec_permission(user=None):
 def require_bank_rec_permission(user=None):
 	user = user or frappe.session.user
 	if not has_bank_rec_permission(user):
-		raise frappe.PermissionError(_("You are not permitted to use Bank Rec."))
+		raise frappe.PermissionError(_("You are not permitted to use Bank Reco."))
 
 
 def is_expected_api_exception(exc):
@@ -94,7 +94,7 @@ def assert_party_access(party_type=None, party=None, company=None, user=None):
 	require_bank_rec_permission(user)
 
 	if party_type and party_type not in ALLOWED_PARTY_TYPES:
-		frappe.throw(_("Party Type {0} is not supported in Bank Rec.").format(party_type))
+		frappe.throw(_("Party Type {0} is not supported in Bank Reco.").format(party_type))
 	if party and not party_type:
 		frappe.throw(_("Party Type is required when Party is set."))
 	if party_type and not party:

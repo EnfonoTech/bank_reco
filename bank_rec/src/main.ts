@@ -28,7 +28,7 @@ const globalComponents = {
 
 setConfig("resourceFetcher", frappeRequest);
 setConfig("fallbackErrorHandler", (error: { message?: string }) => {
-  throw new Error(error.message || "Bank Rec request failed.");
+  throw new Error(error.message || "Bank Reco request failed.");
 });
 
 async function loadDevBoot() {

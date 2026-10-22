@@ -1,6 +1,6 @@
 """Banking reports in one place.
 
-Thin wrapper over ERPNext's own query reports so the Bank Rec screen can show
+Thin wrapper over ERPNext's own query reports so the Bank Reco screen can show
 them next to the reconciliation without sending users to the report builder.
 Report permissions are enforced by ``frappe.desk.query_report.run`` itself.
 """

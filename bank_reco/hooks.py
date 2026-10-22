@@ -9,7 +9,7 @@ app_license = "gpl-3.0"
 add_to_apps_screen = [
     {
         "name": "bank_rec",
-        "title": "Bank Rec",
+        "title": "Bank Reco",
         "route": "/bank-rec",
         "has_permission": "bank_reco.api.permission.has_bank_rec_permission",
     }

@@ -270,7 +270,7 @@ watch(
   <div class="flex min-h-0 w-full flex-1 flex-col gap-4 lg:h-[calc(100vh-103px)] lg:overflow-hidden">
     <ErrorState
       v-if="hasBootError"
-      title="Bank Rec is unavailable"
+      title="Bank Reco is unavailable"
       :message="store.errors.boot"
       can-retry
       @retry="initialize"

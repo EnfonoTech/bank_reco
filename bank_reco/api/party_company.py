@@ -28,7 +28,7 @@ def _get_settings(settings=None):
 def _require_supported_party_type(party_type):
 	if party_type not in SUPPORTED_PARTY_TYPES:
 		frappe.throw(
-			_("Party Type {0} is not supported in Bank Rec.").format(party_type)
+			_("Party Type {0} is not supported in Bank Reco.").format(party_type)
 		)
 
 

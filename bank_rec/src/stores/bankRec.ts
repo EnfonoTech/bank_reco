@@ -239,7 +239,7 @@ export const useBankRecStore = defineStore("bankRec", {
         window.csrf_token = this.boot.csrf_token;
       } catch (error) {
         this.errors.boot =
-          error instanceof Error ? error.message : "Unable to load Bank Rec.";
+          error instanceof Error ? error.message : "Unable to load Bank Reco.";
       } finally {
         this.loading.boot = false;
       }

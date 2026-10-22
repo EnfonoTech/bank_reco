@@ -238,7 +238,7 @@ def start_auto_reconcile(bank_account, from_date=None, to_date=None, dry_run=1):
 		)
 		return {"job_id": job_id}
 	except Exception as exc:
-		log_unexpected_api_exception(exc, "Bank Rec start_auto_reconcile failed", rollback=True)
+		log_unexpected_api_exception(exc, "Bank Reco start_auto_reconcile failed", rollback=True)
 		raise
 
 

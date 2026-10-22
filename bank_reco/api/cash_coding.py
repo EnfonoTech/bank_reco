@@ -199,7 +199,7 @@ def preview_cash_coding(rows):
 				}
 			)
 		except Exception as exc:
-			results.append(_row_exception_error(row, exc, "Bank Rec bank coding preview failed"))
+			results.append(_row_exception_error(row, exc, "Bank Reco bank coding preview failed"))
 
 	return {"results": results}
 
@@ -265,7 +265,7 @@ def submit_cash_coding(rows):
 			frappe.db.release_savepoint(savepoint)
 		except Exception as exc:
 			frappe.db.rollback(save_point=savepoint)
-			results.append(_row_exception_error(row, exc, "Bank Rec bank coding submit failed"))
+			results.append(_row_exception_error(row, exc, "Bank Reco bank coding submit failed"))
 
 	return {
 		"results": results,

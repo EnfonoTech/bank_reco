@@ -1,4 +1,4 @@
-"""Create and manage bank rules from the Bank Rec screen.
+"""Create and manage bank rules from the Bank Reco screen.
 
 A rule is an ``ABR Bank Rule``: conditions on a bank transaction (description,
 amounts, reference ...) and an action (post a Journal Entry to an account, or
@@ -187,7 +187,7 @@ def save_rule(payload, name=None):
 			rule.insert()
 		return _rule_dto(rule)
 	except Exception as exc:
-		log_unexpected_api_exception(exc, "Bank Rec save_rule failed", rollback=True)
+		log_unexpected_api_exception(exc, "Bank Reco save_rule failed", rollback=True)
 		raise
 
 

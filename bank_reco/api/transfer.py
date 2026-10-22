@@ -117,7 +117,7 @@ def create_internal_transfer(
 			bank_transaction_name, counterpart_name, counter_account, reference_no, remarks
 		)
 	except Exception as exc:
-		log_unexpected_api_exception(exc, "Bank Rec create_internal_transfer failed", rollback=True)
+		log_unexpected_api_exception(exc, "Bank Reco create_internal_transfer failed", rollback=True)
 		raise
 
 

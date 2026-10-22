@@ -97,7 +97,7 @@ const navbarLogo = computed(() => {
           <img
             v-if="navbarLogo"
             :src="navbarLogo"
-            alt="Bank Rec"
+            alt="Bank Reco"
             class="h-8 w-auto max-w-[120px] shrink-0 object-contain sm:max-w-[160px]"
           />
           <div
@@ -108,7 +108,7 @@ const navbarLogo = computed(() => {
           </div>
           <div class="min-w-0">
             <div class="text-xl font-semibold leading-7 tracking-[-0.015em] text-white">
-              Bank Rec
+              Bank Reco
             </div>
             <div class="truncate text-sm text-bank-shell-muted">
               {{ activeTitle }}
@@ -118,7 +118,7 @@ const navbarLogo = computed(() => {
 
         <nav
           class="bank-rec-nav-scrollbar flex max-w-full gap-1 overflow-x-auto rounded-lg border border-bank-shell-line bg-bank-shell-deep p-1"
-          aria-label="Bank Rec sections"
+          aria-label="Bank Reco sections"
         >
           <RouterLink
             v-for="item in navItems"
