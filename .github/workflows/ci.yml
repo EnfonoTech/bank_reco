@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  FRAPPE_VERSION: v15.119.1
+  ERPNEXT_VERSION: v15.120.0
+  CI: "Yes"
+
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.event.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: "!contains(github.event.head_commit.message, 'chore(release):')"
+    name: Server
+
+    services:
+      redis-cache:
+        image: redis:alpine
+        ports:
+          - 13000:6379
+        options: --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
+      redis-queue:
+        image: redis:alpine
+        ports:
+          - 11000:6379
+        options: --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=2s --health-retries=3
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: --health-cmd="mariadb-admin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          check-latest: true
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/*requirements.txt', '**/pyproject.toml', '**/setup.py', '**/setup.cfg') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: 'echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT'
+
+      - uses: actions/cache@v4
+        id: yarn-cache
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install MariaDB Client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mariadb-client
+
+      - name: Setup
+        run: |
+          pip install frappe-bench
+          bench init --skip-redis-config-generation --skip-assets --python "$(which python)" --frappe-branch "$FRAPPE_VERSION" ${{ github.workspace }}/../frappe-bench
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL character_set_server = 'utf8mb4'"
+          mariadb --host 127.0.0.1 --port 3306 -u root -proot -e "SET GLOBAL collation_server = 'utf8mb4_unicode_ci'"
+
+      - name: Get ERPNext
+        working-directory: ${{ github.workspace }}/../frappe-bench
+        run: |
+          bench get-app erpnext --branch "$ERPNEXT_VERSION"
+
+      - name: Get app
+        working-directory: ${{ github.workspace }}/../frappe-bench
+        run: |
+          bench get-app bank_reco $GITHUB_WORKSPACE
+
+      - name: Setup requirements
+        working-directory: ${{ github.workspace }}/../frappe-bench
+        run: |
+          bench setup requirements --dev
+
+      - name: Create test site
+        working-directory: ${{ github.workspace }}/../frappe-bench
+        run: |
+          bench new-site --db-root-password root --admin-password admin test_site
+
+      - name: Install ERPNext
+        working-directory: ${{ github.workspace }}/../frappe-bench
+        run: |
+          bench --site test_site install-app erpnext
+
+      - name: Install app
+        working-directory: ${{ github.workspace }}/../frappe-bench
+        run: |
+          bench --site test_site install-app bank_reco
+
+      - name: Build app assets
+        working-directory: ${{ github.workspace }}/../frappe-bench
+        run: |
+          bench build --app bank_reco
+
+      - name: Run Tests
+        working-directory: ${{ github.workspace }}/../frappe-bench
+        run: |
+          bench --site test_site set-config allow_tests true
+          bench --site test_site run-tests --app bank_reco
+        env:
+          TYPE: server

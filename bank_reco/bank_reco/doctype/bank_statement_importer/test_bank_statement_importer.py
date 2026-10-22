@@ -1,0 +1,161 @@
+# Copyright (c) 2024, High Flyer and Contributors
+# See license.txt
+
+import json
+from datetime import date
+from unittest.mock import patch
+
+import frappe
+from frappe.tests.utils import FrappeTestCase
+
+from bank_reco.bank_reco.doctype.bank_statement_importer.bank_statement_importer import (
+    get_selected_bank_mapping,
+    is_truthy,
+    normalize_mapping_for_headers,
+    parse_date,
+    parse_json_if_required,
+    publish_records,
+)
+
+
+class TestBankStatementImporter(FrappeTestCase):
+    def test_publish_records_converts_numeric_reference_to_text(self):
+        class FakeBankTransaction:
+            def update(self, values):
+                self.__dict__.update(values)
+
+            def insert(self):
+                pass
+
+            def submit(self):
+                pass
+
+        transaction = FakeBankTransaction()
+        dataset = [
+            [
+                "Date",
+                "Deposit",
+                "Withdrawal",
+                "Description",
+                "Reference Number",
+                "Bank Account",
+                "Currency",
+                "Is Duplicated",
+            ],
+            [
+                "2026-08-01",
+                100,
+                0,
+                "Deposit",
+                123,
+                "_Test Bank Account",
+                "NZD",
+                0,
+            ],
+        ]
+
+        with (
+            patch.object(frappe, "new_doc", return_value=transaction),
+            patch(
+                "bank_reco.bank_reco.doctype.bank_statement_importer.bank_statement_importer.flip_amount_for_credit_card"
+            ),
+        ):
+            success = publish_records(json.dumps(dataset))
+
+        self.assertTrue(success)
+        self.assertEqual(transaction.reference_number, "123")
+
+    def test_date_parser(self):
+        expected_date = date(2024, 5, 9)
+
+        # d/m/Y
+        self.assertEqual(self.convert_date("9/05/2024", "d/m/Y"), expected_date)
+        # m/d/Y
+        self.assertEqual(self.convert_date("5/09/2024", "m/d/Y"), expected_date)
+        # Y/m/d
+        self.assertEqual(self.convert_date("2024/05/09", "Y/m/d"), expected_date)
+        # Y/d/m
+        self.assertEqual(self.convert_date("2024/09/05", "Y/d/m"), expected_date)
+
+    def test_get_selected_bank_mapping_with_same_amount_and_code(self):
+        importer_data = {
+            "date_select": "Txn Date",
+            "same_amount_field": 1,
+            "amount_select": "Amount",
+            "description_select": "Description",
+            "reference_number_select": "Reference",
+            "particulars_select": "Particulars",
+            "code_select": "Code",
+            "other_party_select": "Counterparty",
+        }
+        self.assertEqual(
+            get_selected_bank_mapping(importer_data),
+            {
+                "date": "Txn Date",
+                "deposit": "Amount",
+                "withdrawal": "Amount",
+                "description": "Description",
+                "reference_number": "Reference",
+                "custom_particulars": "Particulars",
+                "custom_code": "Code",
+                "bank_party_name": "Counterparty",
+            },
+        )
+
+    def test_get_selected_bank_mapping_with_separate_amount_fields(self):
+        importer_data = {
+            "date_select": "Date",
+            "same_amount_field": 0,
+            "deposit_select": "Credit",
+            "withdrawal_select": "Debit",
+        }
+        self.assertEqual(
+            get_selected_bank_mapping(importer_data),
+            {"date": "Date", "deposit": "Credit", "withdrawal": "Debit"},
+        )
+
+    def test_parse_json_if_required_and_is_truthy(self):
+        self.assertEqual(parse_json_if_required('{"save_mapping_for_future_use": 1}'), {"save_mapping_for_future_use": 1})
+        self.assertEqual(parse_json_if_required({"bank_account": "BA-001"}), {"bank_account": "BA-001"})
+        self.assertEqual(parse_json_if_required(""), {})
+        self.assertEqual(parse_json_if_required("{"), {})
+        self.assertEqual(parse_json_if_required("not json"), {})
+        self.assertTrue(is_truthy("1"))
+        self.assertTrue(is_truthy("true"))
+        self.assertFalse(is_truthy("false"))
+
+    def test_normalize_mapping_for_headers_skips_stale_optional_selections(self):
+        mapping = {
+            "date_select": "Date",
+            "same_amount_field": 1,
+            "amount_select": "Amount",
+            "description_select": "Description",
+            "reference_number_select": "Reference Number",
+            "particulars_select": "Old Particulars",
+            "code_select": "Old Code",
+            "other_party_select": "Old Other Party",
+        }
+        normalized = normalize_mapping_for_headers(
+            mapping,
+            ["Date", "Amount", "Description", "Reference Number"],
+        )
+        self.assertEqual(normalized["particulars_select"], "")
+        self.assertEqual(normalized["code_select"], "")
+        self.assertEqual(normalized["other_party_select"], "")
+
+    def test_normalize_mapping_for_headers_requires_core_columns(self):
+        mapping = {
+            "date_select": "Old Date",
+            "same_amount_field": 1,
+            "amount_select": "Amount",
+            "description_select": "Description",
+            "reference_number_select": "Reference Number",
+        }
+        with self.assertRaises(frappe.ValidationError):
+            normalize_mapping_for_headers(
+                mapping,
+                ["Date", "Amount", "Description", "Reference Number"],
+            )
+
+    def convert_date(self, date_str, date_format):
+        return parse_date(date_str, date_format)

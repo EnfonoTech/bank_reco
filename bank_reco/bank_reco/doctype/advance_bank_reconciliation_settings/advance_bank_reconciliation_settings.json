@@ -1,0 +1,213 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-10-29 07:29:05.215055",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "appearance_section",
+  "navbar_logo",
+  "default_actions_section",
+  "default_reconciliation_action",
+  "default_document_type",
+  "column_break_defaults",
+  "default_journal_entry_type",
+  "matching_dialog_section",
+  "compact_matching_vouchers_table",
+  "party_company_filtering_section",
+  "filter_parties_by_company",
+  "customer_company_field",
+  "supplier_company_field",
+  "employee_company_field",
+  "reconciling_unpaid_invoices_section",
+  "sort_unpaid_invoices_by_posting_date",
+  "validate_selection_against_unallocated_amount",
+  "reconcile_unpaid_invoices_in_background",
+  "rule_suggestions_section",
+  "suggest_rules_hourly",
+  "transfer_match_days"
+ ],
+ "fields": [
+  {
+   "fieldname": "appearance_section",
+   "fieldtype": "Section Break",
+   "label": "Appearance"
+  },
+  {
+   "description": "Shown in the modern Bank Rec navbar. The default icon is used when blank.",
+   "fieldname": "navbar_logo",
+   "fieldtype": "Attach Image",
+   "label": "Navbar Logo"
+  },
+  {
+   "fieldname": "default_actions_section",
+   "fieldtype": "Section Break",
+   "label": "Default Actions"
+  },
+  {
+   "default": "Match Against Voucher",
+   "description": "The default action selected when clicking Actions on an unmatched transaction.",
+   "fieldname": "default_reconciliation_action",
+   "fieldtype": "Select",
+   "label": "Default Reconciliation Action",
+   "options": "Match Against Voucher\nCreate Voucher"
+  },
+  {
+   "default": "Payment Entry",
+   "depends_on": "eval:doc.default_reconciliation_action=='Create Voucher'",
+   "description": "The default document type when creating vouchers.",
+   "fieldname": "default_document_type",
+   "fieldtype": "Select",
+   "label": "Default Document Type",
+   "options": "Payment Entry\nJournal Entry"
+  },
+  {
+   "fieldname": "column_break_defaults",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Bank Entry",
+   "depends_on": "eval:doc.default_reconciliation_action=='Create Voucher' && doc.default_document_type=='Journal Entry'",
+   "description": "The default Journal Entry type when creating Journal Entry vouchers.",
+   "fieldname": "default_journal_entry_type",
+   "fieldtype": "Select",
+   "label": "Default Journal Entry Type",
+   "options": "Journal Entry\nInter Company Journal Entry\nBank Entry\nCash Entry\nCredit Card Entry\nDebit Note\nCredit Note\nContra Entry\nExcise Entry\nWrite Off Entry\nOpening Entry\nDepreciation Entry\nExchange Rate Revaluation\nDeferred Revenue\nDeferred Expense"
+  },
+  {
+   "fieldname": "matching_dialog_section",
+   "fieldtype": "Section Break",
+   "label": "Matching Dialog"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, the matching vouchers table in the reconciliation dialog auto-shrinks for few rows and caps at 300px when there are many. Keep disabled if your workflow involves scanning long lists of vouchers at a glance.",
+   "fieldname": "compact_matching_vouchers_table",
+   "fieldtype": "Check",
+   "label": "Compact matching vouchers table"
+  },
+  {
+   "fieldname": "party_company_filtering_section",
+   "fieldtype": "Section Break",
+   "label": "Party Company Filtering"
+  },
+  {
+   "default": "0",
+   "description": "Restrict Customer, Supplier, and Employee selections to the reconciliation company while allowing records with a blank company as shared.",
+   "fieldname": "filter_parties_by_company",
+   "fieldtype": "Check",
+   "label": "Filter Parties by Company"
+  },
+  {
+   "depends_on": "eval:doc.filter_parties_by_company",
+   "description": "Link field on Customer that identifies the owning company.",
+   "fieldname": "customer_company_field",
+   "fieldtype": "Autocomplete",
+   "label": "Customer Company Field",
+   "mandatory_depends_on": "eval:doc.filter_parties_by_company"
+  },
+  {
+   "depends_on": "eval:doc.filter_parties_by_company",
+   "description": "Link field on Supplier that identifies the owning company.",
+   "fieldname": "supplier_company_field",
+   "fieldtype": "Autocomplete",
+   "label": "Supplier Company Field",
+   "mandatory_depends_on": "eval:doc.filter_parties_by_company"
+  },
+  {
+   "default": "company",
+   "depends_on": "eval:doc.filter_parties_by_company",
+   "description": "Link field on Employee that identifies the owning company.",
+   "fieldname": "employee_company_field",
+   "fieldtype": "Autocomplete",
+   "label": "Employee Company Field",
+   "mandatory_depends_on": "eval:doc.filter_parties_by_company"
+  },
+  {
+   "fieldname": "reconciling_unpaid_invoices_section",
+   "fieldtype": "Section Break",
+   "label": "Reconciling Unpaid Invoices"
+  },
+  {
+   "default": "0",
+   "description": "When enabled, unpaid invoices in the matching dialog are listed strictly by posting date (oldest first). When disabled (default), invoices whose outstanding amount exactly matches the bank transaction are surfaced first.",
+   "fieldname": "sort_unpaid_invoices_by_posting_date",
+   "fieldtype": "Check",
+   "label": "Sort unpaid invoices by posting date (FIFO)"
+  },
+  {
+   "default": "0",
+   "description": "If checked, the unallocated amount from the bank transaction will be validated against the total of the selected unpaid invoices. If the total doesn't match, an error will be thrown.",
+   "fieldname": "validate_selection_against_unallocated_amount",
+   "fieldtype": "Check",
+   "label": "Validate selection against unallocated amount"
+  },
+  {
+   "default": "1",
+   "description": "If selected, unpaid invoices are reconciled in a background job.",
+   "fieldname": "reconcile_unpaid_invoices_in_background",
+   "fieldtype": "Check",
+   "label": "Reconcile unpaid invoices in background"
+  },
+  {
+   "fieldname": "rule_suggestions_section",
+   "fieldtype": "Section Break",
+   "label": "Rule Suggestions"
+  },
+  {
+   "fieldname": "suggest_rules_hourly",
+   "fieldtype": "Check",
+   "label": "Evaluate bank rules hourly",
+   "default": "0",
+   "description": "Every hour, flag new unreconciled bank transactions that match an enabled bank rule. Nothing is posted automatically: a user applies the suggestion."
+  },
+  {
+   "fieldname": "transfer_match_days",
+   "fieldtype": "Int",
+   "label": "Internal transfer match window (days)",
+   "default": "4",
+   "description": "A transfer counterpart is searched for within this many days before and after the transaction date."
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-06 19:58:13.000000",
+ "modified_by": "Administrator",
+ "module": "Bank Reco",
+ "name": "Advance Bank Reconciliation Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Accounts User",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

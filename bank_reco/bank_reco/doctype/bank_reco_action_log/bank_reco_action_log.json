@@ -1,0 +1,182 @@
+{
+ "actions": [],
+ "creation": "2026-10-22 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "bank_transaction",
+  "bank_account",
+  "company",
+  "column_break_a",
+  "action_type",
+  "status",
+  "batch_id",
+  "section_voucher",
+  "voucher_type",
+  "voucher_name",
+  "column_break_b",
+  "amount",
+  "section_undo",
+  "details",
+  "column_break_c",
+  "undone_by",
+  "undone_on"
+ ],
+ "fields": [
+  {
+   "fieldname": "bank_transaction",
+   "fieldtype": "Link",
+   "label": "Bank Transaction",
+   "options": "Bank Transaction",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "bank_account",
+   "fieldtype": "Link",
+   "label": "Bank Account",
+   "options": "Bank Account",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_a",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "action_type",
+   "fieldtype": "Select",
+   "label": "Action",
+   "options": "Matched\nCreated Voucher\nInternal Transfer",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nUndone",
+   "default": "Active",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "batch_id",
+   "fieldtype": "Data",
+   "label": "Batch ID",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "section_voucher",
+   "fieldtype": "Section Break",
+   "label": "Voucher"
+  },
+  {
+   "fieldname": "voucher_type",
+   "fieldtype": "Link",
+   "label": "Voucher Type",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "voucher_name",
+   "fieldtype": "Dynamic Link",
+   "label": "Voucher",
+   "options": "voucher_type",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_b",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "section_undo",
+   "fieldtype": "Section Break",
+   "label": "Undo"
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Small Text",
+   "label": "Details",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_c",
+   "fieldtype": "Column Break",
+   "label": ""
+  },
+  {
+   "fieldname": "undone_by",
+   "fieldtype": "Link",
+   "label": "Undone By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "undone_on",
+   "fieldtype": "Datetime",
+   "label": "Undone On",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-22 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Bank Reco",
+ "name": "Bank Reco Action Log",
+ "naming_rule": "Expression",
+ "autoname": "format:BRAL-{#####}",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 0,
+   "delete": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "export": 1,
+   "write": 0
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "export": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "export": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "in_create": 1,
+ "read_only": 1
+}

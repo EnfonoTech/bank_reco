@@ -1,0 +1,14 @@
+.DS_Store
+*.pyc
+*.egg-info
+*.swp
+tags
+node_modules
+__pycache__
+.worktrees/
+
+bank_reco/public/dist
+bank_reco/public/bank_rec
+bank_reco/www/bank_rec/index.html
+bank_rec/auto-imports.d.ts
+bank_rec/components.d.ts

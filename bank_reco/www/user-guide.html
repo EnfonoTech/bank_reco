@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bank Reco - User Guide</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23164e63'/%3E%3Cpath d='M8 17l5 5 11-12' fill='none' stroke='%2367e8f9' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{--ink:#102a36;--muted:#60717b;--line:#dce4e8;--bg:#f4f7f9;--card:#fff;--brand:#0e7490;--shell:#164e63;--soft:rgba(14,116,144,.09);--warn:#b45309;--ok:#15803d}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+header{background:var(--shell);color:#fff;padding:22px 24px}
+header h1{margin:0;font-size:22px}
+header p{margin:4px 0 0;color:#b7c8ce}
+header a{color:#67e8f9}
+.wrap{display:grid;grid-template-columns:240px minmax(0,1fr);gap:28px;max-width:1180px;margin:0 auto;padding:24px}
+nav{position:sticky;top:16px;align-self:start;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
+nav a{display:block;padding:6px 10px;border-radius:6px;color:var(--ink);text-decoration:none;font-size:14px}
+nav a:hover{background:var(--soft);color:var(--brand)}
+main section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px 24px;margin-bottom:18px}
+h2{margin:0 0 8px;font-size:19px;color:var(--shell)}
+h3{margin:18px 0 6px;font-size:15px}
+code,kbd{background:#edf2f4;border-radius:4px;padding:1px 6px;font-size:13px}
+ol,ul{padding-left:22px}
+li{margin:4px 0}
+.tip,.warn{border-left:4px solid var(--brand);background:var(--soft);padding:8px 12px;border-radius:0 6px 6px 0;margin:12px 0}
+.warn{border-color:var(--warn);background:#fef3c7}
+table{border-collapse:collapse;width:100%;margin:10px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#edf2f4}
+.pill{display:inline-block;border-radius:999px;padding:0 9px;font-size:12px;font-weight:600;background:var(--soft);color:var(--brand)}
+@media(max-width:820px){.wrap{grid-template-columns:1fr}nav{position:static}}
+@media print{nav,header a{display:none}.wrap{display:block}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bank Reco - User Guide</h1>
+  <p>Reconcile bank statements against ERPNext vouchers. <a href="/bank-rec">Open Bank Reco</a> &middot; <a href="/app">Back to the desk</a></p>
+</header>
+<div class="wrap">
+<nav>
+  <a href="#start">1. Before you start</a>
+  <a href="#screen">2. The Bank Rec screen</a>
+  <a href="#import">3. Import a statement</a>
+  <a href="#reconcile">4. Reconcile</a>
+  <a href="#create">5. Create a voucher</a>
+  <a href="#transfer">6. Internal transfers</a>
+  <a href="#coding">7. Bank Coding</a>
+  <a href="#rules">8. Bank rules</a>
+  <a href="#history">9. History and Undo</a>
+  <a href="#balance">10. Statement balance</a>
+  <a href="#reports">11. Reports</a>
+  <a href="#settings">12. Settings</a>
+  <a href="#roles">13. Roles</a>
+  <a href="#trouble">14. Troubleshooting</a>
+</nav>
+<main>
+
+<section id="start">
+<h2>1. Before you start</h2>
+<p>Bank Reco works on <b>Bank Transactions</b> (the lines of your bank statement) and links them to ERPNext vouchers: Payment Entry, Journal Entry, Sales Invoice, Purchase Invoice.</p>
+<ol>
+  <li>Create the <b>Bank</b> and a <b>Bank Account</b> (Accounts &gt; Bank Account).</li>
+  <li>Tick <b>Is Company Account</b> and select the <b>Account</b> (the ledger account of that bank). <span class="warn" style="display:block">Only Bank Accounts that are company accounts and have a ledger account are listed in Bank Reco. If the screen says <i>No company bank accounts found</i>, this is why.</span></li>
+  <li>For a credit card, tick <b>Credit Card</b> on the Bank Account so imported deposits and withdrawals are flipped to the right side.</li>
+  <li>Import the statement (section 3) or create Bank Transactions by hand. Transactions must be <b>submitted</b>.</li>
+</ol>
+</section>
+
+<section id="screen">
+<h2>2. The Bank Rec screen</h2>
+<p>Open <b>Bank Reco</b> from the apps menu or the desk workspace, or go to <code>/bank-rec</code>. Click the logo at the top left to return to the desk.</p>
+<table>
+<tr><th>Tab</th><th>Use it to</th></tr>
+<tr><td>Reconcile</td><td>Match, create, transfer or update one bank transaction at a time.</td></tr>
+<tr><td>Import</td><td>Upload a bank statement file, check it, import it.</td></tr>
+<tr><td>Bank Coding</td><td>Code many transactions to ledger accounts in one table.</td></tr>
+<tr><td>Matched</td><td>See reconciled transactions and unreconcile one.</td></tr>
+<tr><td>Rules</td><td>Create, edit, order and test bank rules; suggest matches; run auto rules.</td></tr>
+<tr><td>History</td><td>Every action you took, with Undo.</td></tr>
+<tr><td>Reports</td><td>Bank Reconciliation Statement, Clearance Summary, Incorrectly Cleared.</td></tr>
+</table>
+<p>The filter bar selects <b>Company</b>, <b>Bank account</b>, the <b>From / To</b> dates, the <b>Statement closing balance</b> and the <b>Status</b> (Unreconciled / Reconciled / All). The four cards show the unreconciled count and total, the ERP cleared balance and the difference to your statement.</p>
+</section>
+
+<section id="import">
+<h2>3. Import a statement</h2>
+<p>Open the <b>Import</b> tab. No desk screen is needed.</p>
+<ol>
+  <li>Select the company and bank account.</li>
+  <li><b>Drop the statement file</b> (CSV, XLSX or XLS) on the page, or click <b>Choose file</b>.</li>
+  <li><b>Match the columns.</b> Date, description, amount (or deposit and withdrawal) are detected for you, and the layout you confirmed last time for this bank is reused. Fix any column that is wrong; set the date format if the dates look wrong.</li>
+  <li>Amounts can be one signed column, two columns, or text with a marker such as <code>1,250.00 CR</code> / <code>DR 99.50</code>. A CR/DR marker decides the column (CR = deposit, DR = withdrawal) whatever the sign says.</li>
+  <li><b>Preview import.</b> You see how many rows are new, how many already exist, the deposit and withdrawal totals and the date range. Duplicate rows are greyed out.</li>
+  <li>Tick <b>Remember this column layout</b> and click <b>Import</b>. Then <b>Reconcile these transactions</b> opens the Reconcile tab on the imported period.</li>
+</ol>
+<div class="tip">For a credit card account (<b>Credit Card</b> ticked on the Bank Account) deposits and withdrawals are swapped on import, and the preview tells you so.</div>
+</section>
+
+<section id="reconcile">
+<h2>4. Reconcile (Match tab)</h2>
+<ol>
+  <li>Pick a <b>bank account</b> and dates. Click a transaction in the left list. Use the search box to find by description, reference, party or amount.</li>
+  <li>The <b>Match</b> tab lists candidate vouchers ranked by amount, party and reference, with a confidence label. Unpaid Sales / Purchase Invoices (and credit / debit notes) are included.</li>
+  <li>Tick one or several vouchers, adjust the allocated amount if needed, then <b>Reconcile</b>. For unpaid invoices the system creates the Payment Entry for you.</li>
+  <li>A green banner appears with an <b>Undo</b> button for the action you just did.</li>
+</ol>
+<div class="tip">The <b>Update</b> tab edits the reference number, party type and party of the bank transaction. The <b>Details</b> tab shows the linked payments.</div>
+</section>
+
+<section id="create">
+<h2>5. Create a voucher from a transaction</h2>
+<p>When nothing matches, open the <b>Create</b> tab, choose the ledger account (Journal Entry) or a party (Payment Entry), fill the cost centre, project and accounting dimensions, and submit. Use <b>Save as draft</b> to finish the voucher in the desk. Tick <b>Save as rule</b> to create a bank rule from this entry.</p>
+</section>
+
+<section id="transfer">
+<h2>6. Internal transfers</h2>
+<ol>
+  <li>Select the withdrawal (or deposit) that is a move between two of your own accounts and open the <b>Transfer</b> tab.</li>
+  <li>Bank Reco looks for the mirror transaction in another bank account: same company and currency, same amount, opposite direction, within the match window (Settings, default 4 days).</li>
+  <li>Select it and click <b>Create transfer and reconcile</b>. One Internal Transfer Payment Entry is posted and <b>both</b> bank transactions are reconciled.</li>
+  <li>If the other side has no imported transaction, enter the other Bank/Cash ledger account instead.</li>
+</ol>
+</section>
+
+<section id="coding">
+<h2>7. Bank Coding</h2>
+<p>For bank charges, interest and similar lines. Choose the ledger account (and party for receivable / payable accounts) on each row, select the rows and submit: one Journal Entry per row. Rows flagged <span class="pill">Rule suggested</span> are pre-filled from a matching bank rule. Each row succeeds or fails on its own.</p>
+</section>
+
+<section id="rules">
+<h2>8. Bank rules</h2>
+<p>A rule says: <i>if the description contains X, post to account Z</i>.</p>
+<h3>Create a rule in three clicks</h3>
+<ol>
+  <li>On the Reconcile tab select a transaction (for example a bank charge) and click <b>New rule</b>. The description and direction are pre-filled from it. Or open the <b>Rules</b> tab and click <b>New rule</b>.</li>
+  <li>Check <b>Direction</b> and <b>Description contains</b>; add more conditions if needed (amount, reference ... with "match any" or "match all").</li>
+  <li>Choose what to create (Journal Entry to an <b>Account</b>, or Payment Entry for a <b>Party</b>), the cost centre / project, and the <b>Mode</b>. Click <b>Test on unreconciled</b> to see how many open transactions it matches, then <b>Create rule</b>.</li>
+</ol>
+<p>On the Rules tab you can also <b>Edit</b>, <b>Disable / Enable</b> and <b>Delete</b> a rule and move it up or down: rules are checked from the top and the first match wins. The mode of a rule is:</p>
+<table>
+<tr><th>Mode</th><th>What happens</th></tr>
+<tr><td><span class="pill">Auto Execute</span></td><td><b>Run auto rules</b> (Rules tab) creates and reconciles the voucher for every matching transaction in the date range. Asks for confirmation first.</td></tr>
+<tr><td><span class="pill">Suggest Only</span></td><td>Nothing is posted. Matching transactions are flagged with the rule name. Select one and click <b>Apply</b> (posts it) or <b>Dismiss</b>.</td></tr>
+</table>
+<ul>
+  <li><b>Run rules</b> (Reconcile) and <b>Suggest matches</b> (Rules) flag matches without posting anything.</li>
+  <li>Settings &gt; <b>Evaluate bank rules hourly</b> does the flagging automatically; it never posts.</li>
+  <li>Rules are checked by priority (lowest number first); the first match wins.</li>
+</ul>
+<div class="warn">Test an Auto Execute rule on a few transactions first: it posts real vouchers. Everything it posts can be undone from History.</div>
+</section>
+
+<section id="history">
+<h2>9. History and Undo</h2>
+<p>Every match, created voucher, bank-coding row, rule run and transfer is logged. Open <b>History</b> (or press <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Z</kbd> outside a text box).</p>
+<ul>
+  <li><b>Undo</b> on a row reverses that action for that transaction. <b>Undo batch</b> reverses a whole bank-coding run or rule run.</li>
+  <li>Vouchers the action <i>created</i> are cancelled. Vouchers it only <i>matched</i> are just unlinked and stay in the books.</li>
+  <li>An undo is refused if something else was linked to the transaction afterwards; use the Matched tab then.</li>
+  <li>Undoing a transfer reverses both sides and cancels the Payment Entry.</li>
+  <li>"Only my actions" is on by default.</li>
+</ul>
+</section>
+
+<section id="balance">
+<h2>10. Statement balance</h2>
+<p>Type the closing balance printed on the statement into <b>Statement closing balance</b>. It is saved for that bank account and the <b>To</b> date, and shown again next time. The <b>Difference</b> card compares it with the ERP cleared balance and turns green (<i>Balanced</i>) when they agree. Clear the field to delete the saved value.</p>
+</section>
+
+<section id="reports">
+<h2>11. Reports</h2>
+<p>The <b>Reports</b> tab runs ERPNext's own reports for the selected bank account: <b>Bank Reconciliation Statement</b> (as of the To date), <b>Bank Clearance Summary</b> (From to To) and <b>Cheques and Deposits Incorrectly cleared</b> (as of the To date).</p>
+</section>
+
+<section id="settings">
+<h2>12. Settings</h2>
+<p>Desk &gt; <b>Advance Bank Reconciliation Settings</b>.</p>
+<table>
+<tr><th>Setting</th><th>Effect</th></tr>
+<tr><td>Validate selection against unallocated amount</td><td>Selected vouchers must equal the transaction amount.</td></tr>
+<tr><td>Reconcile unpaid invoices in background</td><td>Big selections run as a background job with progress.</td></tr>
+<tr><td>Evaluate bank rules hourly</td><td>Flags rule matches every hour (posts nothing).</td></tr>
+<tr><td>Internal transfer match window (days)</td><td>How far apart the two sides of a transfer may be.</td></tr>
+<tr><td>Filter parties by company</td><td>Only parties of the transaction's company are offered.</td></tr>
+<tr><td>Default document type / journal entry type</td><td>Defaults for the Create tab and Bank Coding.</td></tr>
+</table>
+</section>
+
+<section id="roles">
+<h2>13. Roles</h2>
+<p>Bank Reco is available to <b>System Manager</b>, <b>Accounts Manager</b> and <b>Accounts User</b>. Users also need permission on the company, the Bank Account and the vouchers involved; company user permissions are respected everywhere.</p>
+</section>
+
+<section id="trouble">
+<h2>14. Troubleshooting</h2>
+<table>
+<tr><th>Symptom</th><th>Fix</th></tr>
+<tr><td>"No company bank accounts found"</td><td>Open the Bank Account, tick <b>Is Company Account</b> and set the ledger <b>Account</b>.</td></tr>
+<tr><td>Transaction list is empty</td><td>Widen the dates, set Status to All, and check the Bank Transactions are submitted.</td></tr>
+<tr><td>Undo is refused</td><td>Another voucher was linked to that transaction later. Unreconcile from the Matched tab.</td></tr>
+<tr><td>Selected amount exceeds the unallocated amount</td><td>Lower the allocation or untick a voucher.</td></tr>
+<tr><td>Rule never suggests</td><td>The rule must be enabled, belong to this bank account, and use the exact field names (Description, Deposit, Withdrawal ...). Click <b>Suggest matches</b> on the Rules tab.</td></tr>
+<tr><td>Progress dialog never closes</td><td>Check that the background worker is running; or switch off background reconciliation in Settings.</td></tr>
+</table>
+</section>
+
+</main>
+</div>
+</body>
+</html>

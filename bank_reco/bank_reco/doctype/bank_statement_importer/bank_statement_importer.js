@@ -1,0 +1,446 @@
+// Copyright (c) 2024, High Flyer and contributors
+// For license information, please see license.txt
+
+var data_headers = []
+var data_body = []
+var tbl = []
+
+frappe.ui.form.on('Bank Statement Importer', {
+	setup(frm) {
+		frm.trigger("bank_account");
+	},
+	refresh(frm) {
+		frm.disable_save();
+		frm.set_query("bank_account", function () {
+			return {
+				filters: {
+					company: frm.doc.company,
+					is_company_account: 1,
+				},
+			};
+		});
+		if (frappe.route_options && frappe.route_options.bank_account) {
+			const target_bank_account = frappe.route_options.bank_account;
+			delete frappe.route_options.bank_account;
+			if (frm.doc.bank_account !== target_bank_account) {
+				frappe.db.get_value("Bank Account", target_bank_account, "company", (r) => {
+					if (r && r.company) {
+						frm.set_value("company", r.company).then(() => {
+							frm.set_value("bank_account", target_bank_account);
+						});
+					} else {
+						frm.set_value("bank_account", target_bank_account);
+					}
+				});
+			}
+		}
+	},
+	bank_account(frm) {
+		const wrapper = frm.get_field("last_transaction_html").$wrapper;
+		wrapper.empty();
+		if (!frm.doc.bank_account) {
+			return;
+		}
+
+		frm.call({
+			method: "get_last_transaction",
+			args: { bank_account: frm.doc.bank_account },
+			callback: function (data) {
+				const last_transaction = data.message;
+				let html = "";
+				if (last_transaction) {
+					const amount = last_transaction.deposit || last_transaction.withdrawal;
+					const transactionType = last_transaction.deposit ? __("Deposit") : __("Withdrawal");
+					html = `<div class="text-danger py-2">Last Transaction: ${format_currency(amount)} ${transactionType} on ${last_transaction.date}</div>`;
+				} else {
+					html = `<div class="py-2">${__("No previous transactions found")}</div>`;
+				}
+				wrapper.append(html);
+			}
+		});
+		frm.set_value("import_file", '');
+		frm.save()
+	},
+	upload_statement(frm) {
+		if (!frm.doc.import_file) {
+			frappe.msgprint({
+				title: __('Error'),
+				indicator: 'red',
+				message: __('Please select a bank statement file to upload')
+			});
+			return;
+		}
+
+		frm.call({
+			method: "form_start_import",
+			args: {
+				data_import: frm.doc.import_file,
+				bank_account: frm.doc.bank_account
+			},
+			btn: frm.page.btn_primary,
+			freeze: true,
+			callback: function (data) {
+				frm.doc.data_fetched = true;
+				frm.refresh_field("data_fetched");
+				const options = data?.message?.header?.join('\n') ?? "";
+				data_headers = data?.message?.header;
+				data_body = data?.message?.body;
+
+				// Apply bank mapping if available
+				const bank_mapping = data?.message?.bank_mapping || {};
+
+				// Filter saved mapping values against the columns actually present in the uploaded file.
+				// A saved mapping may reference a column name that no longer exists (e.g. the bank
+				// renamed "Reference" to "Reference Number"). Silently filling a Select with an invalid
+				// value causes a ValueError in build_table when .index() is called on the missing column.
+				const headers = data?.message?.header || [];
+				const validInHeaders = (val) => (val && headers.includes(val)) ? val : null;
+
+				// Extract file field names directly from bank mapping, validated against current headers.
+				const dateField = validInHeaders(bank_mapping.date);
+				const depositField = validInHeaders(bank_mapping.deposit);
+				const withdrawalField = validInHeaders(bank_mapping.withdrawal);
+				const descriptionField = validInHeaders(bank_mapping.description);
+				const referenceField = validInHeaders(bank_mapping.reference_number);
+				const particularsField = validInHeaders(bank_mapping.custom_particulars);
+				const codeField = validInHeaders(bank_mapping.custom_code);
+				const otherPartyField = validInHeaders(bank_mapping.bank_party_name);
+
+				// Identify any saved mapping entries that pointed at columns not in the current file.
+				const fieldLabels = {
+					date: __('Date'),
+					deposit: __('Deposit'),
+					withdrawal: __('Withdrawal'),
+					description: __('Description'),
+					reference_number: __('Reference Number'),
+					custom_particulars: __('Particulars'),
+					custom_code: __('Code'),
+					bank_party_name: __('Other Party'),
+				};
+				const staleMappings = [];
+				for (const k of Object.keys(fieldLabels)) {
+					const savedVal = bank_mapping[k];
+					if (savedVal && !headers.includes(savedVal)) {
+						staleMappings.push(`${fieldLabels[k]} (was "${frappe.utils.escape_html(savedVal)}")`);
+					}
+				}
+				if (staleMappings.length > 0) {
+					frappe.msgprint({
+						title: __('Saved field mapping out of date'),
+						indicator: 'yellow',
+						message: __('The saved column mapping for this bank refers to columns that are not in the uploaded file. The following fields were not auto-filled and need to be re-selected:') +
+						'<br><br>' + staleMappings.map(s => `<b>${s}</b>`).join('<br>') + '<br><br>' +
+						__('Pick the correct columns from the dropdowns below, then click Map Fields.')
+					});
+				}
+
+				const resetMappingSelections = [
+					"date_select",
+					"deposit_select",
+					"withdrawal_select",
+					"amount_select",
+					"description_select",
+					"reference_number_select",
+					"particulars_select",
+					"code_select",
+					"other_party_select",
+				];
+				for (const fieldname of resetMappingSelections) {
+					frm.doc[fieldname] = "";
+				}
+				frm.doc.same_amount_field = 0;
+				frm.doc.positive_field = "";
+
+				// Set field options
+				frm.set_df_property("date_select", "options", options);
+				frm.set_df_property("deposit_select", "options", options);
+				frm.set_df_property("withdrawal_select", "options", options);
+				frm.set_df_property("amount_select", "options", options);
+				frm.set_df_property("description_select", "options", options);
+				frm.set_df_property("reference_number_select", "options", options);
+				frm.set_df_property("particulars_select", "options", options);
+				frm.set_df_property("code_select", "options", options);
+				frm.set_df_property("other_party_select", "options", options);
+
+				// Check if deposit and withdrawal use the same field
+				// This happens when both depositField and withdrawalField exist and point to the same file column
+				const isSameAmountField = depositField && withdrawalField && depositField === withdrawalField;
+
+				if (isSameAmountField) {
+					frm.set_value('same_amount_field', 1);
+
+					// Set amount_select to the shared field
+					const sharedField = depositField || withdrawalField;
+					frm.set_value('amount_select', sharedField);
+
+					// Clear deposit_select and withdrawal_select to avoid redundancy
+					frm.set_value('deposit_select', '');
+					frm.set_value('withdrawal_select', '');
+
+					// Default positive field to Deposit - this means positive values in the amount column
+					// will be treated as deposits (money coming in) and negative values as withdrawals (money going out)
+					// This is the most common banking convention where positive = credit/deposit, negative = debit/withdrawal
+					frm.set_value('positive_field', 'Deposit');
+				} else {
+					frm.set_value('same_amount_field', 0);
+					frm.set_value('positive_field', '');
+				}
+
+				// Set form field values directly from bank mapping
+				if (dateField) {
+					frm.set_value('date_select', dateField);
+				}
+				if (!isSameAmountField) {
+					// Only set individual deposit/withdrawal fields if not using same amount field
+					if (depositField) {
+						frm.set_value('deposit_select', depositField);
+					}
+					if (withdrawalField) {
+						frm.set_value('withdrawal_select', withdrawalField);
+					}
+				}
+				if (descriptionField) {
+					frm.set_value('description_select', descriptionField);
+				}
+				if (referenceField) {
+					frm.set_value('reference_number_select', referenceField);
+				}
+				if (particularsField) {
+					frm.set_value('particulars_select', particularsField);
+				}
+				if (codeField) {
+					frm.set_value('code_select', codeField);
+				}
+				if (otherPartyField) {
+					frm.set_value('other_party_select', otherPartyField);
+				}
+
+				// Set date format from bank
+				if (bank_mapping.date_format) {
+					frm.set_value('date_format', bank_mapping.date_format);
+				}
+
+				// Refresh all fields consistently
+				frm.refresh_field("same_amount_field");
+				frm.refresh_field("positive_field");
+				frm.refresh_field("date_select");
+				frm.refresh_field("deposit_select");
+				frm.refresh_field("amount_select");
+				frm.refresh_field("withdrawal_select");
+				frm.refresh_field("description_select");
+				frm.refresh_field("reference_number_select");
+				frm.refresh_field("date_format");
+				frm.refresh_field("particulars_select");
+				frm.refresh_field("code_select");
+				frm.refresh_field("other_party_select");
+			}
+		}).then((r) => {
+			if (r.message === true) {
+				frm.disable_save();
+			}
+		});
+	},
+
+	map_fields(frm) {
+		frm.call({
+			method: "map_fields",
+			args: {
+				data: frm.doc,
+				data_headers: data_headers,
+				data_body: data_body
+			},
+			freeze: true,
+			btn: frm.page.btn_primary,
+			callback: function (data) {
+				frm.doc.fields_mapped = true;
+				frm.refresh_field("fields_mapped");
+				tbl = data.message;
+				let data_len = data.message?.length || 0;
+				const rows = [];
+				let duplicates = 0;
+				for (let i = 0; i < data_len; i++) {
+					const row = data.message[i];
+					if (i > 0) {
+						rows.push(row);
+						if (row.length > 7 && row[7] == 1) {
+							duplicates += 1;
+						}
+					}
+				}
+
+				let wrapper = frm.get_field("import_preview").$wrapper;
+				wrapper.empty();
+				const columns = [
+					{
+						name: __("Date"),
+						editable: false,
+						width: 100,
+					},
+					{
+						name: __("Deposit"),
+						editable: false,
+						width: 100,
+					},
+					{
+						name: __("Withdrawal"),
+						editable: false,
+						width: 100,
+					},
+					{
+						name: __("Description"),
+						editable: false,
+						width: 150,
+					},
+					{
+						name: __("Reference Number"),
+						editable: false,
+						width: 150,
+					},
+					{
+						name: __("Bank Account"),
+						editable: false,
+						width: 150,
+					},
+					{
+						name: __("Currency"),
+						editable: false,
+						width: 100,
+					},
+					{
+						name: __("Is Duplicated"),
+						editable: false,
+						width: 100,
+					},
+					{
+						name: __("Particulars"),
+						editable: false,
+						width: 150,
+					},
+					{
+						name: __("Code"),
+						editable: false,
+						width: 120,
+					},
+					{
+						name: __("Other Party"),
+						editable: false,
+						width: 150,
+					}
+				];
+				const datatable_options = {
+					columns: columns,
+					data: rows,
+					dynamicRowHeight: true,
+					checkboxColumn: false,
+					inlineFilters: true,
+				};
+				this.datatable = new frappe.DataTable(wrapper.get(0), datatable_options);
+				if (duplicates > 0) {
+					frappe.msgprint({
+						title: __('Warning'),
+						indicator: 'yellow',
+						message: __(`Duplicate records(${duplicates}) found. Please check and confirm the records prior to submission.`)
+					});
+				}
+			}
+		}).then((r) => {
+			if (r.message === true) {
+				frm.disable_save();
+			}
+		});
+	},
+
+	import_data(frm) {
+		frm.call({
+			method: "publish_records",
+			args: {
+				data_import: tbl,
+				importer_data: {
+					bank_account: frm.doc.bank_account,
+					save_mapping_for_future_use: frm.doc.save_mapping_for_future_use,
+					date_select: frm.doc.date_select,
+					date_format: frm.doc.date_format,
+					same_amount_field: frm.doc.same_amount_field,
+					amount_select: frm.doc.amount_select,
+					deposit_select: frm.doc.deposit_select,
+					withdrawal_select: frm.doc.withdrawal_select,
+					description_select: frm.doc.description_select,
+					reference_number_select: frm.doc.reference_number_select,
+					particulars_select: frm.doc.particulars_select,
+					code_select: frm.doc.code_select,
+					other_party_select: frm.doc.other_party_select,
+				}
+			},
+			btn: frm.page.btn_primary,
+			freeze: true,
+			callback: function (data) {
+				if (data.message === true) {
+					frappe.msgprint({
+						title: __('Success'),
+						indicator: 'green',
+						message: __('Bank statement uploaded successfully')
+					});
+					frm.trigger("reset");
+				} else {
+					frappe.msgprint({
+						title: __('Error'),
+						indicator: 'red',
+						message: __('Bank statement uploaded unsuccessful')
+					});
+				}
+			}
+		}).then((r) => {
+			if (r.message === true) {
+				frm.disable_save();
+			}
+		});
+	},
+	reset(frm) {
+		frm.doc.data_fetched = false;
+		frm.doc.fields_mapped = false;
+		frm.set_value("import_file", '');
+		frm.refresh_field("data_fetched");
+		frm.refresh_field("fields_mapped");
+		frm.get_field("import_preview").$wrapper.empty();
+	},
+
+	same_amount_field(frm) {
+		// Handle manual changes to same_amount_field checkbox
+		if (frm.doc.same_amount_field) {
+			// When checked, clear individual deposit/withdrawal selects to avoid redundancy
+			frm.set_value('deposit_select', '');
+			frm.set_value('withdrawal_select', '');
+
+			// Set default positive field if not already set
+			if (!frm.doc.positive_field) {
+				frm.set_value('positive_field', 'Deposit');
+			}
+		} else {
+			// When unchecked, clear amount_select and positive_field
+			frm.set_value('amount_select', '');
+			frm.set_value('positive_field', '');
+		}
+
+		// Refresh all related fields consistently
+		frm.refresh_field("deposit_select");
+		frm.refresh_field("withdrawal_select");
+		frm.refresh_field("amount_select");
+		frm.refresh_field("positive_field");
+	},
+
+	amount_select(frm) {
+		// When amount_select changes and same_amount_field is checked
+		if (frm.doc.same_amount_field && frm.doc.amount_select) {
+			// Ensure deposit and withdrawal selects remain clear
+			frm.set_value('deposit_select', '');
+			frm.set_value('withdrawal_select', '');
+			frm.refresh_field("deposit_select");
+			frm.refresh_field("withdrawal_select");
+		}
+	},
+
+	positive_field(frm) {
+		// Refresh the field when positive_field changes
+		frm.refresh_field("positive_field");
+	}
+});

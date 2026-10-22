@@ -1,0 +1,206 @@
+{
+ "charts": [],
+ "content": "[{\"id\": \"brh1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Bank Reco</b></span>\", \"col\": 12}}, {\"id\": \"brs0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Rec\", \"col\": 3}}, {\"id\": \"brs1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Coding\", \"col\": 3}}, {\"id\": \"brs2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"History / Undo\", \"col\": 3}}, {\"id\": \"brs3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Reports\", \"col\": 3}}, {\"id\": \"brs4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Transaction\", \"col\": 3}}, {\"id\": \"brs5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bank Rules\", \"col\": 3}}, {\"id\": \"brs6\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"User Guide\", \"col\": 3}}, {\"id\": \"brsp1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"brh2\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports &amp; Setup</b></span>\", \"col\": 12}}, {\"id\": \"brc0\", \"type\": \"card\", \"data\": {\"card_name\": \"Reconcile\", \"col\": 4}}, {\"id\": \"brc1\", \"type\": \"card\", \"data\": {\"card_name\": \"Rules\", \"col\": 4}}, {\"id\": \"brc2\", \"type\": \"card\", \"data\": {\"card_name\": \"Audit\", \"col\": 4}}, {\"id\": \"brc3\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}]",
+ "creation": "2026-10-22 00:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "income",
+ "idx": 0,
+ "indicator_color": "",
+ "is_hidden": 0,
+ "label": "Bank Reco",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reconcile",
+   "link_count": 3,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Bank Transaction",
+   "link_count": 0,
+   "link_to": "Bank Transaction",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Bank Statement Importer",
+   "link_count": 0,
+   "link_to": "Bank Statement Importer",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Statement Balance",
+   "link_count": 0,
+   "link_to": "Bank Reco Statement Balance",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Rules",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Bank Rules",
+   "link_count": 0,
+   "link_to": "ABR Bank Rule",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Audit",
+   "link_count": 1,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Action Log",
+   "link_count": 0,
+   "link_to": "Bank Reco Action Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Setup",
+   "link_count": 2,
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Bank Reco Settings",
+   "link_count": 0,
+   "link_to": "Advance Bank Reconciliation Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Bank Account",
+   "link_count": 0,
+   "link_to": "Bank Account",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-22 16:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Bank Reco",
+ "name": "Bank Reco",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Accounts User"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 0.0,
+ "shortcuts": [
+  {
+   "color": "Green",
+   "doc_view": "",
+   "format": "",
+   "label": "Bank Rec",
+   "type": "URL",
+   "url": "/bank-rec/reconcile"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "format": "",
+   "label": "Bank Coding",
+   "type": "URL",
+   "url": "/bank-rec/bank-coding"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "",
+   "format": "",
+   "label": "History / Undo",
+   "type": "URL",
+   "url": "/bank-rec/history"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "format": "",
+   "label": "Reports",
+   "type": "URL",
+   "url": "/bank-rec/reports"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "format": "",
+   "label": "Bank Transaction",
+   "link_to": "Bank Transaction",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "format": "",
+   "label": "Bank Rules",
+   "link_to": "ABR Bank Rule",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "format": "",
+   "label": "User Guide",
+   "url": "/user-guide",
+   "type": "URL"
+  }
+ ],
+ "title": "Bank Reco"
+}

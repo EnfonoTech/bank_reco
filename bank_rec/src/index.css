@@ -1,0 +1,312 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --font-stack: "InterVariable", "Inter", -apple-system, blinkmacsystemfont,
+    "Segoe UI", sans-serif;
+  --bankreco-primary: #0e7490;
+  --bankreco-button-hover: #155e75;
+  --bankreco-button-active: #164e63;
+  --bankreco-primary-soft: rgba(14, 116, 144, 0.1);
+  --bankreco-shell: #164e63;
+  --bankreco-sidebar: #0f2a39;
+  --bankreco-sidebar-border: #1b3b4b;
+  --bankreco-sidebar-muted: #b7c8ce;
+  --bankreco-sidebar-hover: rgba(255, 255, 255, 0.07);
+  --bankreco-sidebar-active: rgba(8, 145, 178, 0.24);
+  --bankreco-shell-accent: #67e8f9;
+  --bankreco-canvas: #f4f7f9;
+  --bankreco-surface: #ffffff;
+  --bankreco-surface-muted: #edf2f4;
+  --bankreco-border-soft: #e8eef1;
+  --bankreco-border: #dce4e8;
+  --bankreco-border-strong: #c9d5da;
+  --bankreco-text: #102a36;
+  --bankreco-heading: #0b1f2b;
+  --bankreco-muted: #60717b;
+  --bankreco-subtle: #8fa7b2;
+  --bankreco-success: #15803d;
+  --bankreco-card-shadow: 0 1px 2px rgba(15, 42, 57, 0.04),
+    0 8px 24px rgba(15, 42, 57, 0.035);
+  --bankreco-menu-shadow: 0 14px 36px rgba(11, 31, 43, 0.16);
+
+  /* Frappe UI semantic colours aligned with the Bank Reco theme. */
+  --surface-white: var(--bankreco-surface);
+  --surface-cards: var(--bankreco-surface);
+  --surface-modal: var(--bankreco-surface);
+  --surface-selected: var(--bankreco-surface);
+  --surface-gray-1: #f8fafb;
+  --surface-gray-2: #f1f5f6;
+  --surface-gray-3: #e8eff2;
+  --surface-gray-4: #dce4e8;
+  --surface-gray-5: #405761;
+  --surface-gray-6: #29414c;
+  --surface-gray-7: #102a36;
+  --outline-gray-1: var(--bankreco-border);
+  --outline-gray-2: var(--bankreco-border-strong);
+  --outline-gray-3: #b8c7ce;
+  --ink-gray-4: var(--bankreco-subtle);
+  --ink-gray-5: var(--bankreco-muted);
+  --ink-gray-6: #405761;
+  --ink-gray-7: #29414c;
+  --ink-gray-8: var(--bankreco-text);
+  --ink-gray-9: var(--bankreco-heading);
+
+  --blue-50: #e9f5f7;
+  --blue-100: #d8eef2;
+  --blue-200: #b9e0e7;
+  --blue-300: #8fcbd6;
+  --blue-400: #67b2c1;
+  --blue-500: #0e7490;
+  --blue-600: #155e75;
+  --blue-700: #164e63;
+  --blue-800: #123f50;
+  --blue-900: #0f2a39;
+  --surface-blue-1: #e9f5f7;
+  --surface-blue-2: #d8eef2;
+  --surface-blue-3: #155e75;
+  --ink-blue-1: #e9f5f7;
+  --ink-blue-2: #0e7490;
+  --ink-blue-3: #155e75;
+  --ink-blue-link: #0e7490;
+  --outline-blue-1: #8fcbd6;
+
+  --green-50: #f0fdf4;
+  --green-100: #dcfce7;
+  --green-200: #bbf7d0;
+  --green-300: #86efac;
+  --green-400: #4ade80;
+  --green-500: #22c55e;
+  --green-600: #16a34a;
+  --green-700: #15803d;
+  --green-800: #166534;
+  --green-900: #14532d;
+  --surface-green-1: #f0fdf4;
+  --surface-green-2: #dcfce7;
+  --surface-green-3: #16a34a;
+  --ink-green-1: #f0fdf4;
+  --ink-green-2: #22c55e;
+  --ink-green-3: #15803d;
+  --outline-green-1: #bbf7d0;
+  --outline-green-2: #86efac;
+
+  --red-50: #fff1f2;
+  --red-100: #ffe4e6;
+  --red-200: #fecdd3;
+  --red-300: #fda4af;
+  --red-400: #fb7185;
+  --red-500: #f43f5e;
+  --red-600: #e11d48;
+  --red-700: #881337;
+  --red-800: #9f1239;
+  --red-900: #881337;
+  --surface-red-1: #fff1f2;
+  --surface-red-2: #ffe4e6;
+  --surface-red-3: #fecdd3;
+  --surface-red-4: #fda4af;
+  --surface-red-5: #e11d48;
+  --surface-red-6: #be123c;
+  --surface-red-7: #9f1239;
+  --ink-red-1: #fff1f2;
+  --ink-red-2: #fb7185;
+  --ink-red-3: #f43f5e;
+  --ink-red-4: #be123c;
+  --outline-red-1: #fecdd3;
+  --outline-red-2: #fda4af;
+  --outline-red-3: #f43f5e;
+
+  --amber-50: #fff7ed;
+  --amber-100: #ffedd5;
+  --amber-200: #fed7aa;
+  --amber-300: #fdba74;
+  --amber-400: #fb923c;
+  --amber-500: #f97316;
+  --amber-600: #ea580c;
+  --amber-700: #c2410c;
+  --amber-800: #9a3412;
+  --amber-900: #7c2d12;
+  --surface-amber-1: #fff7ed;
+  --surface-amber-2: #ffedd5;
+  --surface-amber-3: #ea580c;
+  --ink-amber-1: #fff7ed;
+  --ink-amber-2: #f97316;
+  --ink-amber-3: #c2410c;
+  --outline-amber-1: #fdba74;
+  --outline-amber-2: #fb923c;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bankreco-primary: #22d3ee;
+  --bankreco-primary-soft: rgba(34, 211, 238, 0.12);
+  --bankreco-shell: #061720;
+  --bankreco-sidebar: #0a202b;
+  --bankreco-sidebar-border: #1d3c49;
+  --bankreco-sidebar-muted: #8ba5b0;
+  --bankreco-sidebar-active: rgba(34, 211, 238, 0.16);
+  --bankreco-canvas: #0b171e;
+  --bankreco-surface: #10232c;
+  --bankreco-surface-muted: #162d37;
+  --bankreco-border-soft: #1d3742;
+  --bankreco-border: #24424e;
+  --bankreco-border-strong: #315563;
+  --bankreco-text: #e5eff2;
+  --bankreco-heading: #f3f9fa;
+  --bankreco-muted: #9bb0b9;
+  --bankreco-subtle: #718c97;
+  --bankreco-success: #86efac;
+  --bankreco-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.18),
+    0 12px 28px rgba(0, 0, 0, 0.12);
+  --bankreco-menu-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+
+  --surface-white: var(--bankreco-surface);
+  --surface-cards: var(--bankreco-surface);
+  --surface-modal: var(--bankreco-surface);
+  --surface-selected: #19333e;
+  --surface-gray-1: #142832;
+  --surface-gray-2: #17313b;
+  --surface-gray-3: #19333e;
+  --surface-gray-4: #1d3944;
+  --surface-gray-5: #9bb0b9;
+  --surface-gray-6: #d1e0e5;
+  --surface-gray-7: #e5eff2;
+  --outline-gray-1: var(--bankreco-border);
+  --outline-gray-2: var(--bankreco-border-strong);
+  --outline-gray-3: #3b6371;
+  --ink-gray-4: var(--bankreco-subtle);
+  --ink-gray-5: var(--bankreco-muted);
+  --ink-gray-6: #b7c8ce;
+  --ink-gray-7: #d1e0e5;
+  --ink-gray-8: var(--bankreco-text);
+  --ink-gray-9: var(--bankreco-heading);
+
+  --blue-300: #67e8f9;
+  --blue-400: #22d3ee;
+  --blue-500: #0e7490;
+  --blue-600: #155e75;
+  --blue-700: #164e63;
+  --surface-blue-1: #102d37;
+  --surface-blue-2: #123b47;
+  --surface-blue-3: #155e75;
+  --ink-blue-2: #67e8f9;
+  --ink-blue-3: #a5f3fc;
+  --ink-blue-link: #67e8f9;
+  --outline-blue-1: #155e75;
+
+  --green-50: #ecfdf3;
+  --green-100: #d1fae1;
+  --green-200: #a7f3c4;
+  --green-300: #6ee79a;
+  --green-400: #34d36f;
+  --green-500: #22c55e;
+  --green-600: #16a34a;
+  --green-700: #15803d;
+  --green-800: #166534;
+  --green-900: #143d25;
+  --surface-green-1: #153325;
+  --surface-green-2: #1b412e;
+  --surface-green-3: #22c55e;
+  --ink-green-1: #f0fdf4;
+  --ink-green-2: #86efac;
+  --ink-green-3: #bbf7d0;
+  --outline-green-1: #285f3f;
+  --outline-green-2: #2f7a4d;
+
+  --red-50: #fff1f2;
+  --red-100: #ffe4e6;
+  --red-200: #fecdd3;
+  --red-300: #fda4af;
+  --red-400: #fb7185;
+  --red-500: #f43f5e;
+  --red-600: #e11d48;
+  --red-700: #fecdd3;
+  --red-800: #881337;
+  --red-900: #4c1522;
+  --surface-red-1: #351b22;
+  --surface-red-2: #472029;
+  --surface-red-3: #5d2632;
+  --surface-red-4: #783342;
+  --surface-red-5: #e11d48;
+  --surface-red-6: #be123c;
+  --surface-red-7: #881337;
+  --ink-red-1: #fff1f2;
+  --ink-red-2: #fecdd3;
+  --ink-red-3: #fda4af;
+  --ink-red-4: #fda4af;
+  --outline-red-1: #68303b;
+  --outline-red-2: #8b3a49;
+  --outline-red-3: #be4b61;
+
+  --amber-50: #fff7ed;
+  --amber-100: #ffedd5;
+  --amber-200: #fed7aa;
+  --amber-300: #fdba74;
+  --amber-400: #fb923c;
+  --amber-500: #f97316;
+  --amber-600: #ea580c;
+  --amber-700: #c2410c;
+  --amber-800: #9a3412;
+  --amber-900: #4a2b0f;
+  --surface-amber-1: #342512;
+  --surface-amber-2: #4a3516;
+  --surface-amber-3: #f97316;
+  --ink-amber-1: #fff7ed;
+  --ink-amber-2: #fdba74;
+  --ink-amber-3: #fed7aa;
+  --outline-amber-1: #72501d;
+  --outline-amber-2: #9a6221;
+
+  --ink-white: #f3f9fa;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bankreco-canvas);
+  color: var(--bankreco-text);
+  font-family: var(--font-stack);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: var(--bankreco-primary-soft);
+}
+
+.bank-rec-scrollbar {
+  scrollbar-color: var(--bankreco-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.bank-rec-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.bank-rec-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--bankreco-border-strong);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.bank-rec-nav-scrollbar {
+  scrollbar-width: none;
+}
+
+.bank-rec-nav-scrollbar::-webkit-scrollbar {
+  display: none;
+}
