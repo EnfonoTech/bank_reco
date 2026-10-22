@@ -25,7 +25,17 @@
   "reconcile_unpaid_invoices_in_background",
   "rule_suggestions_section",
   "suggest_rules_hourly",
-  "transfer_match_days"
+  "transfer_match_days",
+  "auto_reconcile_section",
+  "auto_match_info",
+  "auto_match_reference",
+  "auto_match_party",
+  "auto_match_date",
+  "auto_match_date_days",
+  "column_break_automatch",
+  "auto_match_one_only",
+  "auto_match_unpaid_invoices",
+  "auto_reconcile_hourly"
  ],
  "fields": [
   {
@@ -167,13 +177,76 @@
    "label": "Internal transfer match window (days)",
    "default": "4",
    "description": "A transfer counterpart is searched for within this many days before and after the transaction date."
+  },
+  {
+   "fieldname": "auto_reconcile_section",
+   "fieldtype": "Section Break",
+   "label": "Auto Reconcile"
+  },
+  {
+   "fieldname": "auto_match_info",
+   "fieldtype": "HTML",
+   "options": "<p>Auto reconcile links a bank transaction to an <b>existing</b> voucher without a click (Reconcile &gt; <b>Auto reconcile</b>, or after an import). The <b>amount must always match exactly</b>. Tick what else a voucher must match. Everything done is logged and can be undone from History.</p>"
+  },
+  {
+   "fieldname": "auto_match_reference",
+   "fieldtype": "Check",
+   "label": "Reference number must match",
+   "default": "1",
+   "description": "Bank reference equals the voucher's reference number / cheque number."
+  },
+  {
+   "fieldname": "auto_match_party",
+   "fieldtype": "Check",
+   "label": "Party must match",
+   "default": "0",
+   "description": "The bank transaction has a party set and the voucher is for the same party."
+  },
+  {
+   "fieldname": "auto_match_date",
+   "fieldtype": "Check",
+   "label": "Date must be close",
+   "default": "1"
+  },
+  {
+   "fieldname": "auto_match_date_days",
+   "fieldtype": "Int",
+   "label": "Within (days)",
+   "default": "5",
+   "depends_on": "auto_match_date",
+   "description": "Voucher posting date or reference date within this many days of the bank date."
+  },
+  {
+   "fieldname": "column_break_automatch",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "auto_match_one_only",
+   "fieldtype": "Check",
+   "label": "Only when exactly one voucher qualifies",
+   "default": "1",
+   "description": "If two or more vouchers qualify, the transaction is left for you to choose."
+  },
+  {
+   "fieldname": "auto_match_unpaid_invoices",
+   "fieldtype": "Check",
+   "label": "Also match unpaid invoices",
+   "default": "0",
+   "description": "Creates and submits a Payment Entry for the invoice. Off by default."
+  },
+  {
+   "fieldname": "auto_reconcile_hourly",
+   "fieldtype": "Check",
+   "label": "Auto reconcile every hour",
+   "default": "0",
+   "description": "Runs on the last 45 days of every company bank account, as Administrator. Off by default."
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-06 19:58:13.000000",
+ "modified": "2026-10-22 18:30:00.000000",
  "modified_by": "Administrator",
  "module": "Bank Reco",
  "name": "Advance Bank Reconciliation Settings",

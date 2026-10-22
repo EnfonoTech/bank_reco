@@ -1,4 +1,6 @@
 import type {
+  AutoReconcileSettings,
+  JobStatus,
   ImportMapping,
   ImportResult,
   ParsedStatement,
@@ -67,6 +69,8 @@ const partyCompanyApiPath =
 const historyApiPath = "/api/method/bank_reco.api.history.";
 const statementImportApiPath = "/api/method/bank_reco.api.statement_import.";
 const rulesApiPath = "/api/method/bank_reco.api.rules.";
+const jobsApiPath = "/api/method/bank_reco.api.jobs.";
+const autoMatchApiPath = "/api/method/bank_reco.api.auto_match.";
 const statementBalanceApiPath = "/api/method/bank_reco.api.statement_balance.";
 const reportsApiPath = "/api/method/bank_reco.api.reports.";
 const transferApiPath = "/api/method/bank_reco.api.transfer.";
@@ -480,11 +484,35 @@ export function importStatement(params: {
   mapping: ImportMapping;
   skip_duplicates: boolean;
   save_mapping: boolean;
+  auto_reconcile: boolean;
+  run_rules: boolean;
 }) {
-  return call<ImportResult>(statementImportApiPath, "import_statement", {
+  return call<{ job_id: string }>(statementImportApiPath, "import_statement", {
     ...params,
     skip_duplicates: params.skip_duplicates ? 1 : 0,
     save_mapping: params.save_mapping ? 1 : 0,
+    auto_reconcile: params.auto_reconcile ? 1 : 0,
+    run_rules: params.run_rules ? 1 : 0,
+  });
+}
+
+export function getJobStatus(job_id: string) {
+  return call<JobStatus>(jobsApiPath, "get_job_status", { job_id });
+}
+
+export function getAutoReconcileSettings() {
+  return call<AutoReconcileSettings>(autoMatchApiPath, "get_auto_reconcile_settings");
+}
+
+export function startAutoReconcile(params: {
+  bank_account: string;
+  from_date?: string;
+  to_date?: string;
+  dry_run: boolean;
+}) {
+  return call<{ job_id: string }>(autoMatchApiPath, "start_auto_reconcile", {
+    ...params,
+    dry_run: params.dry_run ? 1 : 0,
   });
 }
 

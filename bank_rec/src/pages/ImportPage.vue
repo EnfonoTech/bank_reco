@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import EmptyState from "@/components/EmptyState.vue";
 import ErrorState from "@/components/ErrorState.vue";
 import {
+  getJobStatus,
   importStatement,
   parseStatement,
   previewStatement,
@@ -12,7 +13,7 @@ import {
 import { useBankRecStore } from "@/stores/bankRec";
 import type {
   ImportMapping,
-  ImportResult,
+  JobStatus,
   ParsedStatement,
   StatementPreview,
 } from "@/types/bankRec";
@@ -23,7 +24,7 @@ const store = useBankRecStore();
 const route = useRoute();
 const router = useRouter();
 
-type Step = "upload" | "map" | "preview" | "done";
+type Step = "upload" | "map" | "preview" | "running" | "done";
 const step = ref<Step>("upload");
 const busy = ref(false);
 const error = ref("");
@@ -34,7 +35,10 @@ const fileName = ref("");
 const parsed = ref<ParsedStatement | null>(null);
 const mapping = ref<ImportMapping | null>(null);
 const preview = ref<StatementPreview | null>(null);
-const result = ref<ImportResult | null>(null);
+const result = ref<JobStatus | null>(null);
+const progress = ref<JobStatus | null>(null);
+const autoReconcile = ref(false);
+const runRules = ref(false);
 const skipDuplicates = ref(true);
 const saveMapping = ref(true);
 const showOptional = ref(false);
@@ -58,6 +62,7 @@ function reset() {
   mapping.value = null;
   preview.value = null;
   result.value = null;
+  progress.value = null;
   error.value = "";
 }
 
@@ -122,20 +127,49 @@ async function runImport() {
   error.value = "";
   busy.value = true;
   try {
-    result.value = await importStatement({
+    const { job_id } = await importStatement({
       file_url: fileUrl.value,
       bank_account: store.selectedBankAccount,
       mapping: mapping.value,
       skip_duplicates: skipDuplicates.value,
       save_mapping: saveMapping.value,
+      auto_reconcile: autoReconcile.value,
+      run_rules: runRules.value,
     });
-    step.value = "done";
+    step.value = "running";
+    await followJob(job_id);
   } catch (err) {
     error.value = err instanceof Error ? err.message : "Unable to import the statement.";
   } finally {
     busy.value = false;
   }
 }
+
+// the import runs on the server in the background: poll its progress
+async function followJob(jobId: string) {
+  for (;;) {
+    const job = await getJobStatus(jobId);
+    progress.value = job;
+    if (job.status === "done") {
+      result.value = job;
+      step.value = "done";
+      return;
+    }
+    if (job.status === "failed") {
+      step.value = "preview";
+      throw new Error(job.message || "The import failed.");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+}
+
+const progressPercent = computed(() => {
+  const job = progress.value;
+  if (!job || !job.total) {
+    return 0;
+  }
+  return Math.min(100, Math.round((job.processed / job.total) * 100));
+});
 
 async function goReconcile() {
   if (preview.value?.from_date) {
@@ -467,6 +501,8 @@ onMounted(async () => {
           <div class="flex flex-wrap gap-5 text-sm text-bank-ink">
             <label class="flex items-center gap-2"><input v-model="skipDuplicates" type="checkbox" /> Skip duplicates</label>
             <label class="flex items-center gap-2"><input v-model="saveMapping" type="checkbox" /> Remember this column layout for the bank</label>
+            <label class="flex items-center gap-2"><input v-model="runRules" type="checkbox" /> Run auto rules afterwards</label>
+            <label class="flex items-center gap-2"><input v-model="autoReconcile" type="checkbox" /> Auto reconcile afterwards</label>
           </div>
           <div class="flex gap-2">
             <Button variant="subtle" @click="step = 'map'">Back</Button>
@@ -477,18 +513,44 @@ onMounted(async () => {
         </div>
       </section>
 
+      <!-- importing: server side, in the background -->
+      <section
+        v-else-if="step === 'running'"
+        class="rounded-lg border border-bank-line bg-bank-panel p-8 text-center shadow-sm"
+      >
+        <div class="text-base font-semibold text-bank-ink">
+          {{ progress?.stage || "Starting the import" }}...
+        </div>
+        <div class="mx-auto mt-4 h-2 w-full max-w-xl overflow-hidden rounded-full bg-bank-muted-surface">
+          <div class="h-full rounded-full bg-bank-accent transition-all" :style="{ width: progressPercent + '%' }" />
+        </div>
+        <div class="mt-2 text-sm tabular-nums text-bank-muted">
+          {{ progress?.processed || 0 }} / {{ progress?.total || 0 }} rows
+          <template v-if="progress?.imported !== undefined"> - {{ progress.imported }} imported</template>
+        </div>
+        <div class="mt-3 text-xs text-bank-muted">
+          It keeps running on the server if you close this page; imported rows are saved as it goes.
+        </div>
+      </section>
+
       <!-- 4. done -->
       <section
         v-else-if="step === 'done' && result"
         class="rounded-lg border border-bank-line bg-bank-panel p-6 text-center shadow-sm"
       >
         <div class="text-xl font-semibold text-bank-ink">
-          {{ result.imported }} transaction{{ result.imported === 1 ? "" : "s" }} imported
+          {{ result.imported || 0 }} transaction{{ result.imported === 1 ? "" : "s" }} imported
         </div>
         <div class="mt-1 text-sm text-bank-muted">
-          {{ result.skipped_duplicates }} duplicate(s) skipped, {{ result.error_count }} failed.
+          {{ result.skipped_duplicates || 0 }} duplicate(s) skipped, {{ result.error_count || 0 }} failed.
         </div>
-        <ul v-if="result.errors.length" class="mx-auto mt-3 max-w-xl text-left text-sm text-ink-red-4">
+        <div v-if="result.rules" class="mt-2 text-sm text-bank-ink">
+          Auto rules: {{ result.rules.matched }} reconciled, {{ result.rules.unmatched }} unmatched.
+        </div>
+        <div v-if="result.auto_reconcile" class="mt-1 text-sm text-bank-ink">
+          Auto reconcile: {{ result.auto_reconcile.matched }} matched, {{ result.auto_reconcile.ambiguous }} left to choose, {{ result.auto_reconcile.no_match }} without a match.
+        </div>
+        <ul v-if="result.errors?.length" class="mx-auto mt-3 max-w-xl text-left text-sm text-ink-red-4">
           <li v-for="item in result.errors" :key="item.row">Row {{ item.row }}: {{ item.message }}</li>
         </ul>
         <div class="mt-5 flex justify-center gap-2">

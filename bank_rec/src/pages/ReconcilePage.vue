@@ -8,6 +8,7 @@ import ErrorState from "@/components/ErrorState.vue";
 import LoadingState from "@/components/LoadingState.vue";
 import MatchPanel from "@/components/MatchPanel.vue";
 import ReconcileProgressDialog from "@/components/ReconcileProgressDialog.vue";
+import AutoReconcileDialog from "@/components/AutoReconcileDialog.vue";
 import RuleFormDialog from "@/components/RuleFormDialog.vue";
 import StatementSummary from "@/components/StatementSummary.vue";
 import TransferPanel from "@/components/TransferPanel.vue";
@@ -28,6 +29,10 @@ const activePanel = ref<"match" | "create" | "transfer" | "update" | "details">(
 const search = ref("");
 const suggestedOnly = ref(false);
 const ruleDialogOpen = ref(false);
+const autoDialogOpen = ref(false);
+async function autoReconciled() {
+  await refresh();
+}
 const rulePrefill = computed(() => {
   const row = store.selectedTransaction;
   if (!row) {
@@ -335,6 +340,14 @@ watch(
                 <Button
                   size="sm"
                   variant="subtle"
+                  title="Match transactions to existing vouchers automatically"
+                  @click="autoDialogOpen = true"
+                >
+                  Auto reconcile
+                </Button>
+                <Button
+                  size="sm"
+                  variant="subtle"
                   :disabled="!store.selectedTransaction"
                   title="Create a bank rule from the selected transaction"
                   @click="ruleDialogOpen = true"
@@ -503,6 +516,16 @@ watch(
         </div>
       </template>
     </template>
+
+    <AutoReconcileDialog
+      :open="autoDialogOpen"
+      :bank-account="store.selectedBankAccount"
+      :from-date="store.fromDate"
+      :to-date="store.toDate"
+      :currency="store.activeCurrency"
+      @close="autoDialogOpen = false"
+      @done="autoReconciled"
+    />
 
     <RuleFormDialog
       :open="ruleDialogOpen"

@@ -246,6 +246,7 @@ required_apps = ["erpnext"]
 scheduler_events = {
 	"hourly": [
 		"bank_reco.bank_reco.doctype.abr_bank_rule.abr_bank_rule.scheduled_rule_suggestions",
+		"bank_reco.api.auto_match.scheduled_auto_reconcile",
 	],
 }
 

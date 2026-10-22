@@ -459,3 +459,46 @@ export interface RuleTestResult {
   checked: number;
   samples: Array<{ name: string; date: string; description: string; amount: number }>;
 }
+
+export interface JobStatus {
+  kind: "import" | "auto_reconcile";
+  status: "queued" | "running" | "done" | "failed";
+  stage?: string;
+  message?: string;
+  total: number;
+  processed: number;
+  // import
+  imported?: number;
+  skipped_duplicates?: number;
+  error_count?: number;
+  errors?: Array<{ row: number; message: string }>;
+  from_date?: string | null;
+  to_date?: string | null;
+  rules?: { matched: number; unmatched: number; skipped: number; errors: number };
+  auto_reconcile?: { matched: number; ambiguous: number; no_match: number; failed: number; batch_id?: string };
+  // auto reconcile
+  dry_run?: boolean;
+  matched?: number;
+  ambiguous?: number;
+  no_match?: number;
+  failed?: number;
+  batch_id?: string | null;
+  proposals?: Array<{
+    bank_transaction: string;
+    date: string;
+    description: string;
+    amount: number;
+    voucher_type: string;
+    voucher_name: string;
+    reasons: string[];
+  }>;
+}
+
+export interface AutoReconcileSettings {
+  reference: boolean;
+  party: boolean;
+  date: boolean;
+  date_days: number;
+  one_only: boolean;
+  unpaid_invoices: boolean;
+}

@@ -13,17 +13,19 @@ importer always agree.
 
 import os
 import re
+from collections import Counter
 from datetime import datetime
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt, getdate
 
 from bank_reco.api.permission import (
 	assert_bank_account_access,
 	log_unexpected_api_exception,
 	require_bank_rec_permission,
 )
+from bank_reco.utils.jobs import new_job, set_job
 from bank_reco.bank_reco.doctype.bank_statement_importer.bank_statement_importer import (
 	build_table,
 	flip_amount_for_credit_card,
@@ -244,13 +246,61 @@ def _table_rows(headers, body, mapping):
 	return rows
 
 
+def _row_key(date, deposit, withdrawal, reference, description):
+	return (
+		str(date),
+		round(flt(deposit), 3),
+		round(flt(withdrawal), 3),
+		str(reference or "").strip(),
+		str(description or "").strip(),
+	)
+
+
+def _mark_duplicates(rows, bank_account):
+	"""Flag every row that is already in the system.
+
+	Compared on date, amounts, reference and description, as stored (so after
+	the credit-card flip). Identical lines inside one file are real separate
+	transactions: with m copies already in the system, only the first m copies
+	in the file are duplicates.
+	"""
+	dated = [r["date"] for r in rows if r["date"]]
+	for row in rows:
+		row["duplicate"] = False
+	if not dated:
+		return rows
+
+	is_card = bool(frappe.db.get_value("Bank Account", bank_account, "is_credit_card"))
+	existing = Counter()
+	for item in frappe.get_all(
+		"Bank Transaction",
+		filters={
+			"bank_account": bank_account,
+			"docstatus": ["!=", 2],
+			"date": ["between", [min(dated), max(dated)]],
+		},
+		fields=["date", "deposit", "withdrawal", "reference_number", "description"],
+	):
+		existing[_row_key(item.date, item.deposit, item.withdrawal, item.reference_number, item.description)] += 1
+
+	for row in rows:
+		if not row["date"]:
+			continue
+		deposit, withdrawal = (row["withdrawal"], row["deposit"]) if is_card else (row["deposit"], row["withdrawal"])
+		key = _row_key(row["date"], deposit, withdrawal, row["reference_number"], row["description"])
+		if existing[key] > 0:
+			existing[key] -= 1
+			row["duplicate"] = True
+	return rows
+
+
 @frappe.whitelist()
 def preview_statement(file_url, bank_account, mapping):
 	"""Apply the mapping and report what an import would create."""
 	require_bank_rec_permission()
 	bank_account_doc = assert_bank_account_access(bank_account)
 	headers, body, mapping = _prepare(file_url, bank_account, mapping)
-	rows = _table_rows(headers, body, mapping)
+	rows = _mark_duplicates(_table_rows(headers, body, mapping), bank_account)
 
 	is_card = bool(frappe.db.get_value("Bank Account", bank_account, "is_credit_card"))
 	new_rows = [r for r in rows if not r["duplicate"] and r["date"]]
@@ -271,69 +321,158 @@ def preview_statement(file_url, bank_account, mapping):
 
 
 @frappe.whitelist()
-def import_statement(file_url, bank_account, mapping, skip_duplicates=1, save_mapping=0):
-	"""Create and submit a Bank Transaction for every mapped row."""
+def import_statement(
+	file_url,
+	bank_account,
+	mapping,
+	skip_duplicates=1,
+	save_mapping=0,
+	auto_reconcile=0,
+	run_rules=0,
+):
+	"""Queue the import. Returns a job id; poll ``bank_reco.api.jobs.get_job_status``."""
 	try:
-		return _import_statement(file_url, bank_account, mapping, skip_duplicates, save_mapping)
+		require_bank_rec_permission()
+		assert_bank_account_access(bank_account)
+		frappe.has_permission("Bank Transaction", "create", throw=True)
+
+		job_id = new_job("import", bank_account=bank_account, file_url=file_url)
+		frappe.enqueue(
+			"bank_reco.api.statement_import.run_import",
+			queue="long",
+			timeout=3600,
+			job_id="bank_reco_import_" + job_id,
+			progress_id=job_id,
+			user=frappe.session.user,
+			file_url=file_url,
+			bank_account=bank_account,
+			mapping=mapping,
+			skip_duplicates=skip_duplicates,
+			save_mapping=save_mapping,
+			auto_reconcile=auto_reconcile,
+			run_rules=run_rules,
+			enqueue_after_commit=True,
+		)
+		return {"job_id": job_id}
 	except Exception as exc:
 		log_unexpected_api_exception(exc, "Bank Rec import_statement failed", rollback=True)
 		raise
 
 
-def _import_statement(file_url, bank_account, mapping, skip_duplicates, save_mapping):
-	require_bank_rec_permission()
-	assert_bank_account_access(bank_account)
-	frappe.has_permission("Bank Transaction", "create", throw=True)
+def run_import(
+	progress_id, user, file_url, bank_account, mapping, skip_duplicates, save_mapping, auto_reconcile, run_rules
+):
+	"""Background job: create the Bank Transactions, committing as it goes."""
+	frappe.set_user(user)
+	try:
+		_run_import(
+			progress_id, file_url, bank_account, mapping, skip_duplicates, save_mapping, auto_reconcile, run_rules
+		)
+	except Exception:
+		frappe.db.rollback()
+		frappe.log_error(title="Bank Reco statement import failed", message=frappe.get_traceback())
+		set_job(progress_id, status="failed", message=_("The import failed. See the Error Log."))
 
+
+def _run_import(job_id, file_url, bank_account, mapping, skip_duplicates, save_mapping, auto_reconcile, run_rules):
+	set_job(job_id, status="running", stage="Reading the file")
 	headers, body, prepared = _prepare(file_url, bank_account, mapping)
-	rows = _table_rows(headers, body, prepared)
+	rows = _mark_duplicates(_table_rows(headers, body, prepared), bank_account)
 	skip = is_truthy(skip_duplicates)
+	set_job(job_id, total=len(rows), stage="Creating bank transactions")
 
-	imported, skipped, errors = 0, 0, []
+	imported, skipped, errors, dates = 0, 0, [], []
 	for index, row in enumerate(rows, start=1):
 		if not row["date"]:
 			errors.append({"row": index, "message": _("Date could not be read.")})
-			continue
-		if skip and row["duplicate"]:
+		elif skip and row["duplicate"]:
 			skipped += 1
-			continue
+		else:
+			savepoint = "bank_reco_import_" + str(index)
+			frappe.db.savepoint(savepoint)
+			try:
+				doc = frappe.new_doc("Bank Transaction")
+				doc.update(
+					{
+						"date": row["date"],
+						"bank_account": bank_account,
+						"currency": row["currency"],
+						"deposit": row["deposit"],
+						"withdrawal": row["withdrawal"],
+						"reference_number": str(row["reference_number"]) if row["reference_number"] else None,
+						"description": str(row["description"]) if row["description"] else None,
+						"custom_particulars": str(row["particulars"]) if row["particulars"] else None,
+						"custom_code": str(row["code"]) if row["code"] else None,
+						"bank_party_name": str(row["other_party"]) if row["other_party"] else None,
+					}
+				)
+				flip_amount_for_credit_card(doc)
+				doc.insert()
+				doc.submit()
+				frappe.db.release_savepoint(savepoint)
+				imported += 1
+				dates.append(row["date"])
+			except Exception as exc:
+				frappe.db.rollback(save_point=savepoint)
+				errors.append({"row": index, "message": str(exc)[:300]})
 
-		savepoint = "bank_reco_import_" + str(index)
-		frappe.db.savepoint(savepoint)
-		try:
-			doc = frappe.new_doc("Bank Transaction")
-			doc.update(
-				{
-					"date": row["date"],
-					"bank_account": bank_account,
-					"currency": row["currency"],
-					"deposit": row["deposit"],
-					"withdrawal": row["withdrawal"],
-					"reference_number": str(row["reference_number"]) if row["reference_number"] else None,
-					"description": str(row["description"]) if row["description"] else None,
-					"custom_particulars": str(row["particulars"]) if row["particulars"] else None,
-					"custom_code": str(row["code"]) if row["code"] else None,
-					"bank_party_name": str(row["other_party"]) if row["other_party"] else None,
-				}
+		if index % 20 == 0:
+			frappe.db.commit()
+			set_job(
+				job_id,
+				processed=index,
+				imported=imported,
+				skipped_duplicates=skipped,
+				error_count=len(errors),
 			)
-			flip_amount_for_credit_card(doc)
-			doc.insert()
-			doc.submit()
-			frappe.db.release_savepoint(savepoint)
-			imported += 1
-		except Exception as exc:
-			frappe.db.rollback(save_point=savepoint)
-			errors.append({"row": index, "message": str(exc)[:300]})
+
+	frappe.db.commit()
+	set_job(job_id, processed=len(rows), imported=imported, skipped_duplicates=skipped, error_count=len(errors))
 
 	if is_truthy(save_mapping):
 		try:
 			save_bank_mapping_for_future_use({**prepared, "bank_account": bank_account})
+			frappe.db.commit()
 		except Exception:
 			frappe.log_error(title="Bank Reco: saving statement mapping failed", message=frappe.get_traceback())
 
-	return {
-		"imported": imported,
-		"skipped_duplicates": skipped,
-		"errors": errors[:50],
-		"error_count": len(errors),
-	}
+	extras = {}
+	if dates and (is_truthy(run_rules) or is_truthy(auto_reconcile)):
+		from_date, to_date = min(dates), max(dates)
+		if is_truthy(run_rules):
+			set_job(job_id, stage="Running auto rules")
+			from bank_reco.bank_reco.doctype.abr_bank_rule.abr_bank_rule import run_bank_rules
+
+			try:
+				extras["rules"] = run_bank_rules(bank_account, from_date, to_date)
+			except Exception:
+				frappe.db.rollback()
+				frappe.log_error(title="Bank Reco: auto rules after import failed", message=frappe.get_traceback())
+		if is_truthy(auto_reconcile):
+			set_job(job_id, stage="Auto reconciling")
+			from bank_reco.api.auto_match import _auto_reconcile
+
+			sub_id = new_job("auto_reconcile", bank_account=bank_account, dry_run=False)
+			try:
+				_auto_reconcile(sub_id, bank_account, from_date, to_date, False)
+				extras["auto_reconcile"] = {
+					key: value
+					for key, value in (frappe.cache().get_value("bank_reco_job::" + sub_id) or {}).items()
+					if key in ("matched", "ambiguous", "no_match", "failed", "batch_id")
+				}
+			except Exception:
+				frappe.db.rollback()
+				frappe.log_error(title="Bank Reco: auto reconcile after import failed", message=frappe.get_traceback())
+
+	set_job(
+		job_id,
+		status="done",
+		stage="Done",
+		imported=imported,
+		skipped_duplicates=skipped,
+		error_count=len(errors),
+		errors=errors[:50],
+		from_date=str(min(dates)) if dates else None,
+		to_date=str(max(dates)) if dates else None,
+		**extras,
+	)

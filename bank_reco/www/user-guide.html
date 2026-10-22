@@ -47,6 +47,7 @@ th{background:#edf2f4}
   <a href="#create">5. Create a voucher</a>
   <a href="#transfer">6. Internal transfers</a>
   <a href="#coding">7. Bank Coding</a>
+  <a href="#auto">8a. Auto reconcile</a>
   <a href="#rules">8. Bank rules</a>
   <a href="#history">9. History and Undo</a>
   <a href="#balance">10. Statement balance</a>
@@ -93,7 +94,7 @@ th{background:#edf2f4}
   <li><b>Match the columns.</b> Date, description, amount (or deposit and withdrawal) are detected for you, and the layout you confirmed last time for this bank is reused. Fix any column that is wrong; set the date format if the dates look wrong.</li>
   <li>Amounts can be one signed column, two columns, or text with a marker such as <code>1,250.00 CR</code> / <code>DR 99.50</code>. A CR/DR marker decides the column (CR = deposit, DR = withdrawal) whatever the sign says.</li>
   <li><b>Preview import.</b> You see how many rows are new, how many already exist, the deposit and withdrawal totals and the date range. Duplicate rows are greyed out.</li>
-  <li>Tick <b>Remember this column layout</b> and click <b>Import</b>. Then <b>Reconcile these transactions</b> opens the Reconcile tab on the imported period.</li>
+  <li>Tick <b>Remember this column layout</b> and click <b>Import</b>. The import runs on the server with a progress bar (a few hundred rows take a minute or two) and keeps going if you leave the page. Then <b>Reconcile these transactions</b> opens the Reconcile tab on the imported period.</li>
 </ol>
 <div class="tip">For a credit card account (<b>Credit Card</b> ticked on the Bank Account) deposits and withdrawals are swapped on import, and the preview tells you so.</div>
 </section>
@@ -127,6 +128,27 @@ th{background:#edf2f4}
 <section id="coding">
 <h2>7. Bank Coding</h2>
 <p>For bank charges, interest and similar lines. Choose the ledger account (and party for receivable / payable accounts) on each row, select the rows and submit: one Journal Entry per row. Rows flagged <span class="pill">Rule suggested</span> are pre-filled from a matching bank rule. Each row succeeds or fails on its own.</p>
+</section>
+
+<section id="auto">
+<h2>8a. Auto reconcile</h2>
+<p>Instead of choosing a voucher for each line, <b>Auto reconcile</b> (Reconcile tab) matches unreconciled transactions of the selected dates to <i>existing</i> vouchers by itself.</p>
+<ol>
+  <li>Click <b>Auto reconcile</b>. The window lists the rules it will apply, taken from <b>Advance Bank Reconciliation Settings &gt; Auto Reconcile</b>.</li>
+  <li><b>Preview matches</b> shows what would be matched and why (nothing is changed), then <b>Reconcile now</b> does it. It runs on the server with a progress bar.</li>
+  <li><b>Undo all</b> reverses the whole run; each match is also in History.</li>
+</ol>
+<table>
+<tr><th>Setting</th><th>Meaning</th></tr>
+<tr><td>Amount</td><td>Always required: the voucher amount equals the bank amount.</td></tr>
+<tr><td>Reference number must match</td><td>The bank reference equals the voucher's reference / cheque number. Default on.</td></tr>
+<tr><td>Party must match</td><td>The transaction's party is the voucher's party. Default off.</td></tr>
+<tr><td>Date must be close (within N days)</td><td>Voucher posting date or reference date near the bank date. Default on, 5 days.</td></tr>
+<tr><td>Only when exactly one voucher qualifies</td><td>Otherwise the line is left for you. Default on.</td></tr>
+<tr><td>Also match unpaid invoices</td><td>Creates a Payment Entry for the invoice. Default off.</td></tr>
+<tr><td>Auto reconcile every hour</td><td>Runs on the last 45 days of every company bank account. Default off.</td></tr>
+</table>
+<p>On the <b>Import</b> tab you can also tick <b>Run auto rules afterwards</b> and <b>Auto reconcile afterwards</b> so a freshly imported statement reconciles itself. <b>Auto rules</b> (bank rules in Auto Execute mode, section 8) post new vouchers for charges and similar lines; <b>Auto reconcile</b> only links vouchers that already exist.</p>
 </section>
 
 <section id="rules">
