@@ -402,6 +402,11 @@ export interface StatementPreview {
   total: number;
   duplicates: number;
   missing_date: number;
+  error_count: number;
+  errors: Array<{ row: number; field?: string; message: string }>;
+  skipped_zero: number;
+  warnings: string[];
+  date_format: string;
   new_count: number;
   deposit_total: number;
   withdrawal_total: number;
@@ -471,7 +476,9 @@ export interface JobStatus {
   imported?: number;
   skipped_duplicates?: number;
   error_count?: number;
-  errors?: Array<{ row: number; message: string }>;
+  errors?: Array<{ row: number; field?: string; message: string }>;
+  warnings?: string[];
+  skipped_zero?: number;
   from_date?: string | null;
   to_date?: string | null;
   rules?: { matched: number; unmatched: number; skipped: number; errors: number };

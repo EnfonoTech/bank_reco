@@ -461,8 +461,22 @@ onMounted(async () => {
         <div v-if="preview.is_credit_card" class="mt-3 rounded-md bg-surface-amber-1 px-3 py-2 text-sm text-ink-amber-3">
           This is a credit card account: deposits and withdrawals are swapped on import (charges become withdrawals).
         </div>
-        <div v-if="preview.missing_date" class="mt-3 text-sm text-ink-red-4">
-          {{ preview.missing_date }} row(s) have a date that could not be read; check the date format.
+        <div
+          v-for="warning in preview.warnings"
+          :key="warning"
+          class="mt-3 rounded-md bg-surface-amber-1 px-3 py-2 text-sm text-ink-amber-3"
+        >
+          {{ warning }}
+        </div>
+        <div v-if="preview.skipped_zero" class="mt-3 text-sm text-bank-muted">
+          {{ preview.skipped_zero }} row(s) with no amount (for example balance brought forward) are left out.
+        </div>
+        <div v-if="preview.error_count" class="mt-3 text-sm text-ink-red-4">
+          {{ preview.error_count }} row(s) cannot be imported and will be left out:
+          <ul class="mt-1 list-disc pl-5">
+            <li v-for="item in preview.errors" :key="item.row + item.message">Row {{ item.row }}: {{ item.message }}</li>
+            <li v-if="preview.error_count > preview.errors.length">and {{ preview.error_count - preview.errors.length }} more</li>
+          </ul>
         </div>
 
         <div class="mt-4 max-h-[360px] overflow-auto rounded-md border border-bank-line">
@@ -543,6 +557,16 @@ onMounted(async () => {
         </div>
         <div class="mt-1 text-sm text-bank-muted">
           {{ result.skipped_duplicates || 0 }} duplicate(s) skipped, {{ result.error_count || 0 }} failed.
+        </div>
+        <div v-if="result.skipped_zero" class="mt-1 text-sm text-bank-muted">
+          {{ result.skipped_zero }} row(s) with no amount were left out.
+        </div>
+        <div
+          v-for="warning in result.warnings"
+          :key="warning"
+          class="mx-auto mt-3 max-w-xl rounded-md bg-surface-amber-1 px-3 py-2 text-left text-sm text-ink-amber-3"
+        >
+          {{ warning }}
         </div>
         <div v-if="result.rules" class="mt-2 text-sm text-bank-ink">
           Auto rules: {{ result.rules.matched }} reconciled, {{ result.rules.unmatched }} unmatched.
