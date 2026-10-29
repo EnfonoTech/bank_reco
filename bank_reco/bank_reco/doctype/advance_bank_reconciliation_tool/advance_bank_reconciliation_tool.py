@@ -4,8 +4,12 @@ import json
 
 import frappe
 from bank_reco.api.permission import (
+	ALLOWED_VOUCHER_DOCTYPES,
+	assert_bank_account_access,
+	assert_bank_transaction_access,
 	assert_company_access,
 	assert_party_access,
+	assert_voucher_access,
 )
 from bank_reco.utils.logger import get_logger
 from erpnext import get_default_cost_center
@@ -228,6 +232,7 @@ def get_accounting_dimensions_for_dialog():
 @frappe.whitelist()
 def get_bank_transactions(bank_account, from_date=None, to_date=None):
 	# returns bank transactions for a bank account
+	assert_bank_account_access(bank_account)
 	filters = []
 	filters.append(["bank_account", "=", bank_account])
 	filters.append(["docstatus", "=", 1])
@@ -263,6 +268,7 @@ def get_bank_transactions(bank_account, from_date=None, to_date=None):
 
 @frappe.whitelist()
 def get_reconciled_bank_transactions(bank_account, from_date=None, to_date=None):
+	assert_bank_account_access(bank_account)
 	bank_transaction = frappe.qb.DocType("Bank Transaction")
 	bt_payments = frappe.qb.DocType("Bank Transaction Payments")
 
@@ -309,6 +315,7 @@ def get_reconciled_bank_transactions(bank_account, from_date=None, to_date=None)
 @frappe.whitelist()
 def get_account_balance(bank_account, till_date):
 	# returns account balance till the specified date
+	assert_bank_account_access(bank_account)
 	account = frappe.db.get_value("Bank Account", bank_account, "account")
 	filters = frappe._dict({"account": account, "report_date": till_date, "include_pos_transactions": 1})
 	data = get_entries(filters)
@@ -425,6 +432,7 @@ def create_journal_entry_bts(
 	dimensions=None,
 ):
 	# Create a new journal entry based on the bank transaction
+	assert_bank_transaction_access(bank_transaction_name, ptype="write")
 	bank_transaction = frappe.db.get_values(
 		"Bank Transaction",
 		bank_transaction_name,
@@ -631,6 +639,7 @@ def create_payment_entry_bts(
 	from erpnext.accounts.party import get_party_account
 
 	# Create a new payment entry based on the bank transaction
+	assert_bank_transaction_access(bank_transaction_name, ptype="write")
 	bank_transaction = frappe.db.get_values(
 		"Bank Transaction",
 		bank_transaction_name,
@@ -767,17 +776,27 @@ def start_auto_reconcile(
 			continue
 
 		# Convert tuple format to dict format for processing
-		# linked_payments returns tuples: (rank, doctype, name, paid_amount, ...)
-		vouchers = list(
-			map(
-				lambda entry: {
+		# linked_payments returns tuples: (rank, doctype, name, paid_amount, ...), best match first.
+		# A negative paid_amount moves money the other way, so it is never netted in automatically,
+		# and the total handed over may never exceed what the transaction still has to allocate.
+		remaining = flt(transaction.unallocated_amount)
+		vouchers = []
+		for entry in linked_payments:
+			amount = flt(entry[3])
+			if amount <= 0 or remaining <= 0:
+				continue
+			allocated = min(amount, remaining)
+			vouchers.append(
+				{
 					"payment_doctype": entry[1],  # doctype
-					"payment_name": entry[2],      # name
-					"amount": entry[3],            # paid_amount
-				},
-				linked_payments,
+					"payment_name": entry[2],  # name
+					"amount": allocated,
+				}
 			)
-		)
+			remaining = flt(remaining - allocated, 6)
+
+		if not vouchers:
+			continue
 
 		updated_transaction = reconcile_vouchers(transaction.name, json.dumps(vouchers))
 
@@ -817,8 +836,9 @@ def get_auto_reconcile_message(partially_reconciled, reconciled):
 @frappe.whitelist()
 def reconcile_vouchers(bank_transaction_name, vouchers):
 	# updated clear date of all the vouchers based on the bank transaction
-	vouchers = json.loads(vouchers)
-	transaction = frappe.get_doc("Bank Transaction", bank_transaction_name)
+	vouchers = json.loads(vouchers) if isinstance(vouchers, str) else vouchers
+	transaction = assert_bank_transaction_access(bank_transaction_name, ptype="write")
+	_assert_voucher_selection_access(vouchers)
 	transaction.add_payment_entries(vouchers)
 	transaction.validate_duplicate_references()
 	transaction.allocate_payment_entries()
@@ -827,6 +847,20 @@ def reconcile_vouchers(bank_transaction_name, vouchers):
 	transaction.save()
 
 	return transaction
+
+
+def _assert_voucher_selection_access(vouchers):
+	"""Every voucher a caller links to a Bank Transaction must be readable by that caller.
+
+	Types outside the Bank Reco voucher set (loan documents) keep their existing behaviour.
+	"""
+	for row in vouchers or []:
+		doctype = row.get("payment_doctype")
+		name = row.get("payment_name")
+		if doctype == "Bank Transaction":
+			assert_bank_transaction_access(name)
+		elif doctype in ALLOWED_VOUCHER_DOCTYPES:
+			assert_voucher_access(doctype, name)
 
 
 CANCELLABLE_DOCTYPES = frozenset({"Payment Entry", "Journal Entry"})
@@ -841,7 +875,7 @@ def unreconcile_bank_transaction(bank_transaction_name, cancel_linked_documents=
 		cancel_linked_documents: If True, cancel linked Payment Entries and Journal Entries
 	"""
 	cancel_linked_documents = cint(cancel_linked_documents)
-	transaction = frappe.get_doc("Bank Transaction", bank_transaction_name)
+	transaction = assert_bank_transaction_access(bank_transaction_name, ptype="write")
 
 	if not transaction.payment_entries:
 		frappe.throw(_("Bank Transaction {0} has no payment entries to unreconcile").format(bank_transaction_name))
@@ -898,11 +932,14 @@ def get_linked_payments(
 	from_reference_date=None,
 	to_reference_date=None,
 ):
+	# get all matching payments for a bank transaction
+	transaction = assert_bank_transaction_access(bank_transaction_name)
+	document_types = document_types or []
 	from_date = getdate(from_date)
 	to_date = getdate(to_date)
-	print(f"Getting payment entries from {from_date} to {to_date} with bank account")
-	# get all matching payments for a bank transaction
-	transaction = frappe.get_doc("Bank Transaction", bank_transaction_name)
+	# getdate() throws on anything that is not a date, so only real dates reach the SQL
+	from_reference_date = getdate(from_reference_date) if from_reference_date else None
+	to_reference_date = getdate(to_reference_date) if to_reference_date else None
 	bank_account = frappe.db.get_values(
 		"Bank Account", transaction.bank_account, ["account", "company"], as_dict=True
 	)[0]
@@ -1005,6 +1042,12 @@ def check_matching(
 		"currency": transaction.currency,
 		"from_date": from_date,
 		"to_date": to_date,
+		# every value the matching queries need is bound as a parameter, never formatted into the SQL
+		"from_reference_date": from_reference_date,
+		"to_reference_date": to_reference_date,
+		"bt_name": transaction.name,
+		"bt_bank_account": transaction.bank_account,
+		"is_deposit": 1 if flt(transaction.deposit) > 0 else 0,
 	}
 
 	matching_vouchers = []
@@ -1041,7 +1084,6 @@ def get_queries(
 
 	# get matching queries from all the apps
 	for method_name in frappe.get_hooks("get_matching_queries", app_name="bank_reco"):
-		print(f"Matching queries: {method_name}")
 		queries.extend(
 			frappe.get_attr(method_name)(
 				bank_account,
@@ -1208,8 +1250,8 @@ def get_bt_matching_query(exact_match, transaction):
 			`tabBank Transaction`
 		WHERE
 			status != 'Reconciled'
-			AND name != '{transaction.name}'
-			AND bank_account = '{transaction.bank_account}'
+			AND name != %(bt_name)s
+			AND bank_account = %(bt_bank_account)s
 			AND {field} {'= %(amount)s' if exact_match else '> 0.0'}
 	"""
 
@@ -1396,14 +1438,15 @@ def get_pe_matching_query(
 	else:
 		amount_condition = f"({amount_comparison}) != 0.0"
 	
-	filter_by_date = f"AND posting_date between '{from_date}' and '{to_date}'"
+	# dates and the reference number are bound by check_matching(); never format them into the SQL
+	filter_by_date = "AND posting_date between %(from_date)s and %(to_date)s"
 	order_by = " posting_date"
 	filter_by_reference_no = ""
-	if cint(filter_by_reference_date):
-		filter_by_date = f"AND reference_date between '{from_reference_date}' and '{to_reference_date}'"
+	if cint(filter_by_reference_date) and from_reference_date and to_reference_date:
+		filter_by_date = "AND reference_date between %(from_reference_date)s and %(to_reference_date)s"
 		order_by = " reference_date"
 	if frappe.flags.auto_reconcile_vouchers is True:
-		filter_by_reference_no = f"AND reference_no = '{transaction.reference_number}'"
+		filter_by_reference_no = "AND reference_no = %(reference_no)s"
 	return f"""
 		SELECT
 			(CASE WHEN reference_no=%(reference_no)s THEN 1 ELSE 0 END
@@ -1452,14 +1495,15 @@ def get_je_matching_query(
 	# We have mapping at the bank level
 	# So one bank could have both types of bank accounts like asset and liability
 	# So cr_or_dr should be judged only on basis of withdrawal and deposit and not account type
-	filter_by_date = f"AND je.posting_date between '{from_date}' and '{to_date}'"
+	# dates and the reference number are bound by check_matching(); never format them into the SQL
+	filter_by_date = "AND je.posting_date between %(from_date)s and %(to_date)s"
 	order_by = " je.posting_date"
 	filter_by_reference_no = ""
-	if cint(filter_by_reference_date):
-		filter_by_date = f"AND je.cheque_date between '{from_reference_date}' and '{to_reference_date}'"
+	if cint(filter_by_reference_date) and from_reference_date and to_reference_date:
+		filter_by_date = "AND je.cheque_date between %(from_reference_date)s and %(to_reference_date)s"
 		order_by = " je.cheque_date"
 	if frappe.flags.auto_reconcile_vouchers is True:
-		filter_by_reference_no = f"AND je.cheque_no = '{transaction.reference_number}'"
+		filter_by_reference_no = "AND je.cheque_no = %(reference_no)s"
 	return f"""
 		SELECT
 			(CASE WHEN je.cheque_no=%(reference_no)s THEN 1 ELSE 0 END
@@ -1469,8 +1513,8 @@ def get_je_matching_query(
 			'Journal Entry' AS doctype,
 			je.name,
 			IF(jea.debit_in_account_currency > 0,
-				IF({transaction.deposit} > 0, jea.debit_in_account_currency, -jea.debit_in_account_currency),
-				IF({transaction.deposit} > 0, -jea.credit_in_account_currency, jea.credit_in_account_currency)
+				IF(%(is_deposit)s > 0, jea.debit_in_account_currency, -jea.debit_in_account_currency),
+				IF(%(is_deposit)s > 0, -jea.credit_in_account_currency, jea.credit_in_account_currency)
 			) AS paid_amount,
 			je.cheque_no AS reference_no,
 			je.cheque_date AS reference_date,
@@ -1725,7 +1769,7 @@ def create_payment_entries_for_invoices(bank_transaction_name, invoices, auto_re
 	if isinstance(auto_reconcile, str):
 		auto_reconcile = auto_reconcile.lower() in ["true", "1", "yes"]
 
-	bank_transaction = frappe.get_doc("Bank Transaction", bank_transaction_name)
+	bank_transaction = assert_bank_transaction_access(bank_transaction_name, ptype="write")
 
 	if not invoices:
 		frappe.throw(_("No invoices selected for payment entry creation"))
@@ -1826,7 +1870,8 @@ def create_payment_entries_bulk(bank_transaction_name, invoices, regular_voucher
 		frappe.throw(_("No vouchers selected for reconciliation"))
 
 	# Basic fetch and state validation for the Bank Transaction
-	bt = frappe.get_doc("Bank Transaction", bank_transaction_name)
+	bt = assert_bank_transaction_access(bank_transaction_name, ptype="write")
+	_assert_voucher_selection_access(regular_vouchers)
 	if bt.docstatus != 1:
 		frappe.throw(_("Bank Transaction must be submitted"))
 	if flt(bt.unallocated_amount) <= 0:
@@ -1870,6 +1915,16 @@ def create_payment_entries_bulk(bank_transaction_name, invoices, regular_voucher
 	# 3) Combined total must equal BT unallocated amount (within small tolerance)
 	# when the site has opted into strict validation.
 	combined_total = total_invoices_amount + total_regular_amount
+	# Over-allocation is never valid, whatever the setting says: the job would post
+	# Payment Entries for the whole selection and only then fail on the Bank Transaction.
+	if abs(flt(combined_total)) - flt(bt.unallocated_amount) > 0.01:
+		frappe.throw(_(
+			"Selected allocations total {0} but this Bank Transaction has only {1} unallocated. "
+			"Remove vouchers or invoices until the selection fits."
+		).format(
+			frappe.utils.fmt_money(combined_total, 2),
+			frappe.utils.fmt_money(bt.unallocated_amount, 2),
+		))
 	if validate_selection_against_unallocated_amount and _selection_exceeds_unallocated(combined_total, bt.unallocated_amount):
 		frappe.throw(_(
 			"Selected allocations total {0} but this Bank Transaction has {1} unallocated. "
@@ -1974,6 +2029,9 @@ def process_bulk_reconciliation(bank_transaction_name, invoices, regular_voucher
 	processed = 0
 	failed = 0
 	all_vouchers = []
+	# Payment Entries this job created itself. all_vouchers also holds vouchers the user
+	# picked (existing, possibly months old), which must never be cancelled by cleanup.
+	created_vouchers = []
 	# Keep the first per-invoice failure so we can surface it on the
 	# completion event. The background logger already has the full trace;
 	# the UI toast previously only said "No payment entries were created",
@@ -2034,12 +2092,16 @@ def process_bulk_reconciliation(bank_transaction_name, invoices, regular_voucher
 						party,
 					)
 					
+					created_vouchers.append({
+						"payment_doctype": "Payment Entry",
+						"payment_name": payment_entry.name,
+					})
 					batch_vouchers.append({
 						"payment_doctype": "Payment Entry",
 						"payment_name": payment_entry.name,
 						"amount": allocated_amount,
 					})
-					
+
 					processed += 1
 					
 				except Exception as e:
@@ -2127,10 +2189,19 @@ def process_bulk_reconciliation(bank_transaction_name, invoices, regular_voucher
 			frappe.db.commit()
 			
 			# Send completion notification
+			message = f"Successfully created {processed} payment entries and reconciled bank transaction"
+			if failed:
+				# Say so loudly: the transaction is reconciled with what could be created, and
+				# the invoices that failed are still unpaid.
+				message = (
+					f"Created {processed} payment entries and reconciled the bank transaction with them, "
+					f"but {failed} invoice(s) could not be paid and are still outstanding. "
+					f"First failure: {first_error['invoice']}: {first_error['message']}"
+				)
 			publish_completion(
 				_job_id,
 				success=True,
-				message=f"Successfully created {processed} payment entries and reconciled bank transaction",
+				message=message,
 				processed=processed,
 				failed=failed,
 				bank_transaction=updated_transaction.name
@@ -2146,14 +2217,17 @@ def process_bulk_reconciliation(bank_transaction_name, invoices, regular_voucher
 		frappe.db.rollback()
 		logger.error("Bulk reconciliation failed: %s", str(e), exc_info=True)
 		
-		# Try to delete any partially created payment entries
-		cleanup_failed_reconciliation(all_vouchers)
-		
+		# Cancel the payment entries earlier batches already committed. Commit the
+		# cancellations here: the job runner rolls back whatever is pending when we re-raise.
+		cancelled = cleanup_failed_reconciliation(created_vouchers)
+		frappe.db.commit()
+		cleanup_note = f" {len(cancelled)} payment entries created by this job were cancelled." if cancelled else ""
+
 		# Send failure notification
 		publish_completion(
 			_job_id,
 			success=False,
-			message=f"Bulk reconciliation failed: {str(e)}",
+			message=f"Bulk reconciliation failed: {str(e)}.{cleanup_note}",
 			processed=processed,
 			failed=failed
 		)
@@ -2199,17 +2273,23 @@ def publish_completion(job_id, success, message, processed=0, failed=0, bank_tra
 
 
 def cleanup_failed_reconciliation(vouchers):
-	"""Attempt to cancel and delete payment entries created during failed reconciliation"""
+	"""Cancel the payment entries a failed reconciliation created.
+
+	Only pass entries the job created itself. They are cancelled, not deleted, so the
+	books keep the audit trail of what was posted and reversed. Returns the names cancelled.
+	"""
+	cancelled = []
 	for voucher in vouchers:
 		try:
 			if voucher.get("payment_doctype") == "Payment Entry":
 				pe = frappe.get_doc("Payment Entry", voucher.get("payment_name"))
 				if pe.docstatus == 1:
 					pe.cancel()
-				frappe.delete_doc("Payment Entry", voucher.get("payment_name"), force=1)
+					cancelled.append(pe.name)
 		except Exception as e:
 			logger.error(f"Error cleaning up payment entry {voucher.get('payment_name')}: {str(e)}")
 			continue
+	return cancelled
 
 
 def _selection_exceeds_unallocated(
@@ -2427,7 +2507,7 @@ def create_payment_entry_for_invoice(invoice_doc, bank_transaction, allocated_am
 
 @frappe.whitelist()
 def get_cleared_balance(bank_account, from_date, till_date):
-	print("Calculating cleared balance", bank_account, from_date, till_date)
+	assert_bank_account_access(bank_account)
 	opening_balance = get_account_balance(bank_account, from_date)
 
 	bank_transaction = frappe.qb.DocType("Bank Transaction")
@@ -2536,6 +2616,8 @@ def get_cleared_balance(bank_account, from_date, till_date):
 
 @frappe.whitelist()
 def validate_bank_transactions(from_date, to_date, company, bank_account):
+	assert_company_access(company)
+	assert_bank_account_access(bank_account)
 	logger.info(f"Validating bank transactions from {from_date} to {to_date} for {company} and {bank_account}")
 
 	bank_transaction = frappe.qb.DocType("Bank Transaction")
@@ -2640,6 +2722,7 @@ def validate_bank_transaction_async(bank_transaction_name):
 	"""
 	Validate a single bank transaction asynchronously using frappe.enqueue
 	"""
+	assert_bank_transaction_access(bank_transaction_name, ptype="write")
 	try:
 		frappe.enqueue(
 			"bank_reco.bank_reco.doctype.advance_bank_reconciliation_tool.advance_bank_reconciliation_tool.validate_single_bank_transaction",
@@ -2661,6 +2744,7 @@ def batch_validate_unvalidated_transactions(bank_account, from_date=None, to_dat
 	Find and validate bank transactions that might have missed automatic validation
 	This is useful for maintenance and catching up on transactions that weren't validated
 	"""
+	assert_bank_account_access(bank_account)
 	try:
 		try:
 			limit = int(limit)

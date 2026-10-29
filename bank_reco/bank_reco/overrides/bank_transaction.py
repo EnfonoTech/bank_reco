@@ -130,8 +130,76 @@ class ExtendedBankTransaction(BankTransaction):
             )
         super().clear_linked_payment_entry(payment_entry, clearance_date)
 
+    def validate_allocation_not_exceeded(self):
+        """Refuse allocations the books cannot support.
+
+        The client supplies every allocated amount, so the server has to check it:
+        1. a transaction cannot be allocated beyond its own amount, and
+        2. a voucher cannot be allocated beyond what is left of its bank GL amount
+           once the allocations other bank transactions already hold are taken off.
+        Both checks only judge what this save adds, so data that was over-allocated
+        before can still be reduced or unreconciled.
+        """
+        tolerance = 0.01
+        old_unallocated = flt(
+            frappe.db.get_value("Bank Transaction", self.name, "unallocated_amount")
+        )
+        if flt(self.unallocated_amount) < -tolerance and flt(
+            self.unallocated_amount
+        ) < old_unallocated:
+            frappe.throw(
+                frappe._(
+                    "The allocations on Bank Transaction {0} exceed the transaction amount by {1}."
+                ).format(self.name, abs(flt(self.unallocated_amount)))
+            )
+
+        saved = {
+            (row.payment_document, row.payment_entry)
+            for row in frappe.get_all(
+                "Bank Transaction Payments",
+                filters={"parent": self.name, "parenttype": "Bank Transaction"},
+                fields=["payment_document", "payment_entry"],
+            )
+        }
+        added = [
+            row
+            for row in self.get("payment_entries") or []
+            if row.payment_document != "Bank Transaction"
+            and flt(row.allocated_amount)
+            and (row.payment_document, row.payment_entry) not in saved
+        ]
+        if not added:
+            return
+
+        docs = [(row.payment_document, row.payment_entry) for row in added]
+        gl_entries = get_related_bank_gl_entries(docs)
+        allocations = get_total_allocated_amount(docs)
+        gl_bank_account = frappe.db.get_value("Bank Account", self.bank_account, "account")
+        for row in added:
+            key = (row.payment_document, row.payment_entry)
+            voucher_amount = flt((gl_entries.get(key) or {}).get(gl_bank_account))
+            if not voucher_amount:
+                # no bank GL entry on this account: leave that to ERPNext's own checks
+                continue
+            already_allocated = flt(
+                ((allocations.get(key) or {}).get(gl_bank_account) or {}).get("total")
+            )
+            available = voucher_amount - already_allocated
+            if abs(flt(row.allocated_amount)) - available > tolerance:
+                frappe.throw(
+                    frappe._(
+                        "{0} {1} has only {2} left to allocate on this bank account, but {3} was requested."
+                    ).format(
+                        row.payment_document,
+                        row.payment_entry,
+                        max(available, 0),
+                        abs(flt(row.allocated_amount)),
+                    )
+                )
+
     def before_update_after_submit(self):
         super().before_update_after_submit()
+        self.validate_allocation_not_exceeded()
         # Fetch the current state of the document from the database
         existing_doc = frappe.get_doc(self.doctype, self.name)
         # Store the current state of the child table

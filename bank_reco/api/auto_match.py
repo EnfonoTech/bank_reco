@@ -193,6 +193,10 @@ def _auto_reconcile(job_id, bank_account, from_date, to_date, dry_run):
 		except Exception:
 			frappe.db.rollback(save_point=savepoint)
 			counts["failed"] += 1
+			frappe.log_error(
+				title="Bank Reco auto reconcile: {0} failed".format(transaction.name),
+				message=frappe.get_traceback(),
+			)
 
 		if index % COMMIT_EVERY == 0:
 			if not dry_run:

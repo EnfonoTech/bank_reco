@@ -166,6 +166,27 @@ def _create_internal_transfer(
 		if account.account_type not in ("Bank", "Cash"):
 			frappe.throw(_("The other account must be a Bank or Cash account."))
 
+	# Both legs post the same amount, which is only right when both accounts hold the same
+	# currency; the rate then converts that currency to the company currency once.
+	company_currency = frappe.get_cached_value("Company", company, "default_currency")
+	own_currency = frappe.get_cached_value("Account", own_account, "account_currency") or company_currency
+	counter_currency = (
+		frappe.get_cached_value("Account", counter_account, "account_currency") or company_currency
+	)
+	if own_currency != counter_currency:
+		frappe.throw(_("Transfers between accounts in different currencies are not supported here."))
+	exchange_rate = 1
+	if own_currency != company_currency:
+		from erpnext.setup.utils import get_exchange_rate
+
+		exchange_rate = flt(get_exchange_rate(own_currency, company_currency, transaction.date))
+		if not exchange_rate:
+			frappe.throw(
+				_("No exchange rate found for {0} to {1} on {2}.").format(
+					own_currency, company_currency, transaction.date
+				)
+			)
+
 	withdrawal = _is_withdrawal(transaction)
 	payment = frappe.get_doc(
 		{
@@ -179,8 +200,8 @@ def _create_internal_transfer(
 			"paid_to": counter_account if withdrawal else own_account,
 			"paid_amount": amount,
 			"received_amount": amount,
-			"source_exchange_rate": 1,
-			"target_exchange_rate": 1,
+			"source_exchange_rate": exchange_rate,
+			"target_exchange_rate": exchange_rate,
 			"remarks": remarks or None,
 		}
 	)
