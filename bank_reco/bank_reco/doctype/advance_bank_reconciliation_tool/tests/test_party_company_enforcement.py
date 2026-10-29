@@ -119,6 +119,8 @@ class TestLegacyPartyCompanyEnforcement(FrappeTestCase):
 					)
 				],
 			),
+			# these tests are about the company / party checks, not the Bank Transaction access check
+			patch(f"{MODULE}.assert_bank_transaction_access"),
 			patch(f"{MODULE}.frappe.get_value", side_effect=["Bank - TC", "_Test Company"]),
 			patch(f"{MODULE}.frappe.db.get_value", return_value="Income"),
 			patch(f"{MODULE}.assert_company_access"),
@@ -151,6 +153,7 @@ class TestLegacyPartyCompanyEnforcement(FrappeTestCase):
 					)
 				],
 			),
+			patch(f"{MODULE}.assert_bank_transaction_access"),
 			patch(f"{MODULE}.frappe.get_value", return_value="Bank - TC"),
 			patch(f"{MODULE}.frappe.db.get_value", return_value="Income"),
 			patch(
@@ -184,6 +187,7 @@ class TestLegacyPartyCompanyEnforcement(FrappeTestCase):
 					)
 				],
 			),
+			patch(f"{MODULE}.assert_bank_transaction_access"),
 			patch(f"{MODULE}.frappe.get_cached_value", side_effect=["Bank - TC", "_Test Company"]),
 			patch(f"{MODULE}.assert_company_access"),
 			patch(f"{MODULE}.assert_party_access", side_effect=frappe.ValidationError),
@@ -212,6 +216,7 @@ class TestLegacyPartyCompanyEnforcement(FrappeTestCase):
 					)
 				],
 			),
+			patch(f"{MODULE}.assert_bank_transaction_access"),
 			patch(f"{MODULE}.frappe.get_cached_value", return_value="Bank - TC"),
 			patch(
 				f"{MODULE}.assert_company_access",
