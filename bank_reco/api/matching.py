@@ -75,11 +75,55 @@ def _normalise_voucher_type(voucher_type):
 	return voucher_type
 
 
+def _expected_amount_sign(source_type, is_deposit):
+	"""Sign of a candidate amount that moves money the same way as the bank line.
+
+	Payment Entry and Journal Entry amounts are already signed against the bank line
+	(positive = same direction). The invoice queries return the raw document sign: a
+	customer invoice pays in, a purchase invoice pays out, and a return reverses that.
+	"""
+	if source_type in ("Sales Invoice", "Unpaid Sales Invoice"):
+		return 1 if is_deposit else -1
+	if source_type in ("Purchase Invoice", "Unpaid Purchase Invoice"):
+		return -1 if is_deposit else 1
+	if source_type in ("Payment Entry", "Journal Entry"):
+		return 1
+	return None
+
+
+def candidate_same_direction(candidate, transaction):
+	"""True when the voucher moves money in the same direction as the bank transaction.
+
+	Voucher types this check does not know (Bank Transaction, loans) are not judged.
+	"""
+	is_deposit = flt(transaction.deposit) > 0
+	expected = _expected_amount_sign(candidate.get("source_type"), is_deposit)
+	if expected is None:
+		return True
+	amount = flt(candidate["amount"])
+	return amount != 0 and (amount > 0) == (expected > 0)
+
+
+def candidate_same_currency(candidate, transaction):
+	candidate_currency = candidate.get("currency")
+	transaction_currency = transaction.get("currency")
+	if not candidate_currency or not transaction_currency:
+		return True
+	return candidate_currency == transaction_currency
+
+
 def _candidate_reasons(candidate, transaction):
 	reasons = []
 	if candidate["reference_number"] and candidate["reference_number"] == transaction.reference_number:
 		reasons.append("Reference")
-	if abs(flt(candidate["amount"])) == abs(flt(transaction.unallocated_amount)):
+	precision = transaction.precision("unallocated_amount")
+	# Equal numbers only count as an amount match when the voucher moves the same way and
+	# in the same currency; 1,000 out is not a match for 1,000 in, nor 1,000 USD for 1,000 AED.
+	if (
+		flt(abs(candidate["amount"]), precision) == flt(abs(transaction.unallocated_amount), precision)
+		and candidate_same_direction(candidate, transaction)
+		and candidate_same_currency(candidate, transaction)
+	):
 		reasons.append("Amount")
 	if (
 		candidate["party_type"]

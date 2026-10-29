@@ -69,7 +69,8 @@ class TestInternalTransferRegressions(FrappeTestCase):
 		)
 
 		with (
-			patch(f"{TOOL_MODULE}.frappe.get_doc", return_value=transaction),
+			# get_linked_payments loads the Bank Transaction through its access check
+			patch(f"{TOOL_MODULE}.assert_bank_transaction_access", return_value=transaction),
 			patch(
 				f"{TOOL_MODULE}.frappe.db.get_values",
 				return_value=[frappe._dict(account="Source Bank", company="Test Company")],

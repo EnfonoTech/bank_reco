@@ -1143,10 +1143,19 @@ nexwave.accounts.bank_reconciliation.DialogManager = class DialogManager {
 				progressDialog.hide();
 
 				if (data.success) {
-					frappe.show_alert({
-						message: data.message,
-						indicator: "green"
-					}, 10);
+					if (data.failed) {
+						// some invoices could not be paid: do not let this pass as a clean success
+						frappe.msgprint({
+							title: __("Bulk Reconciliation Partly Completed"),
+							message: data.message,
+							indicator: "orange"
+						});
+					} else {
+						frappe.show_alert({
+							message: data.message,
+							indicator: "green"
+						}, 10);
+					}
 
 					// Refresh the data table
 					if (this.update_dt_cards) {

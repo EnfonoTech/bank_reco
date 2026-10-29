@@ -54,11 +54,19 @@ class TestBankStatementImporter(FrappeTestCase):
             ],
         ]
 
+        module = "bank_reco.bank_reco.doctype.bank_statement_importer.bank_statement_importer"
+
+        def no_duplicates(rows, bank_account):
+            for row in rows:
+                row["duplicate"] = False
+            return rows
+
         with (
             patch.object(frappe, "new_doc", return_value=transaction),
-            patch(
-                "bank_reco.bank_reco.doctype.bank_statement_importer.bank_statement_importer.flip_amount_for_credit_card"
-            ),
+            patch(f"{module}.flip_amount_for_credit_card"),
+            # this test is about the reference type, not about who may import where
+            patch(f"{module}.assert_bank_account_access"),
+            patch(f"{module}.mark_duplicates", side_effect=no_duplicates),
         ):
             success = publish_records(json.dumps(dataset))
 

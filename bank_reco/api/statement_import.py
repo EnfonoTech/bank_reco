@@ -12,13 +12,10 @@ importer always agree.
 """
 
 import os
-import re
-from collections import Counter
-from datetime import datetime
 
 import frappe
 from frappe import _
-from frappe.utils import cint, flt, getdate
+from frappe.utils import flt
 
 from bank_reco.api.permission import (
 	assert_bank_account_access,
@@ -27,18 +24,24 @@ from bank_reco.api.permission import (
 )
 from bank_reco.utils.jobs import get_job, new_job, set_job
 from bank_reco.bank_reco.doctype.bank_statement_importer.bank_statement_importer import (
-	build_table,
+	EMPTY_REFERENCE_HEADER,
+	build_table_with_report,
+	clean_header,
+	detect_date_format,
 	flip_amount_for_credit_card,
+	get_readable_file_doc,
 	is_truthy,
+	mark_duplicates,
 	parse_json_if_required,
 	read_content,
+	row_key,
 	save_bank_mapping_for_future_use,
 	start_import,
 )
 
 SAMPLE_ROWS = 8
 PREVIEW_ROWS = 300
-EMPTY_REFERENCE_HEADER = "(none)"
+MAX_ERRORS_SHOWN = 50
 
 DATE_FORMATS = [
 	"Auto",
@@ -55,20 +58,6 @@ DATE_FORMATS = [
 	"d.m.YY",
 ]
 
-_PY_FORMATS = {
-	"d/m/Y": "%d/%m/%Y",
-	"m/d/Y": "%m/%d/%Y",
-	"Y-m-d": "%Y-%m-%d",
-	"d-m-Y": "%d-%m-%Y",
-	"m-d-Y": "%m-%d-%Y",
-	"Y/m/d": "%Y/%m/%d",
-	"d.m.Y": "%d.%m.%Y",
-	"dd/mm/YY": "%d/%m/%y",
-	"m/d/YY": "%m/%d/%y",
-	"d-m-YY": "%d-%m-%y",
-	"d.m.YY": "%d.%m.%y",
-}
-
 # header keywords per target, most specific first
 _GUESS = {
 	"date_select": ["transaction date", "txn date", "posting date", "value date", "date"],
@@ -81,26 +70,26 @@ _GUESS = {
 
 
 def _read_file(file_url):
-	"""Return (headers, body) of an uploaded CSV/XLSX/XLS file the user may read."""
-	if not file_url:
-		frappe.throw(_("Upload a statement file first."))
-	file_name = frappe.db.get_value("File", {"file_url": file_url})
-	if not file_name:
-		frappe.throw(_("The uploaded file was not found."))
-	file_doc = frappe.get_doc("File", file_name)
-	frappe.has_permission("File", "read", doc=file_doc, throw=True)
+	"""Return (headers, body, row_numbers) of an uploaded CSV/XLSX/XLS file the user may read.
+
+	``row_numbers`` are the rows' numbers in the file (the header is row 1), so a
+	row error can be found again after blank lines were dropped.
+	"""
+	file_doc = get_readable_file_doc(file_url)
 
 	extension = os.path.splitext(file_url)[1][1:].lower()
-	data = [
-		row
-		for row in read_content(file_doc.get_content(), extension)
+	numbered = [
+		(number, row)
+		for number, row in enumerate(read_content(file_doc.get_content(), extension), start=1)
 		if row and any(c not in (None, "") for c in row)
 	]
-	if len(data) < 2:
+	if len(numbered) < 2:
 		frappe.throw(_("The file has no data rows."))
 
-	headers = [str(h).strip() if h is not None else "" for h in data[0]]
-	return headers, data[1:]
+	headers = [clean_header(h) for h in numbered[0][1]]
+	body = [row for _number, row in numbered[1:]]
+	row_numbers = [number for number, _row in numbered[1:]]
+	return headers, body, row_numbers
 
 
 def _guess_column(headers, keywords, used):
@@ -112,29 +101,12 @@ def _guess_column(headers, keywords, used):
 	return ""
 
 
-def _guess_date_format(headers, body, date_column):
-	if not date_column:
-		return "Auto"
+def _date_detection(headers, body, date_column):
+	"""``detect_date_format`` over every value of the date column."""
+	if not date_column or date_column not in headers:
+		return detect_date_format([])
 	index = headers.index(date_column)
-	samples = [
-		str(row[index]).strip()
-		for row in body[:25]
-		if index < len(row) and row[index] not in (None, "")
-	]
-	if not samples:
-		return "Auto"
-	# a real date object (xlsx) or ISO text needs no format
-	if all(re.match(r"^\d{4}-\d{2}-\d{2}", s) for s in samples):
-		return "Auto"
-	for name in ("d/m/Y", "m/d/Y", "d-m-Y", "m-d-Y", "d.m.Y", "Y/m/d", "dd/mm/YY", "m/d/YY", "d-m-YY", "d.m.YY"):
-		pattern = _PY_FORMATS[name]
-		try:
-			for sample in samples:
-				datetime.strptime(sample, pattern)
-		except ValueError:
-			continue
-		return name
-	return "Auto"
+	return detect_date_format(row[index] for row in body if index < len(row))
 
 
 def _guess_mapping(headers, body):
@@ -156,13 +128,13 @@ def _guess_mapping(headers, body):
 		mapping["deposit_select"] = ""
 		mapping["withdrawal_select"] = ""
 	mapping["positive_field"] = "Deposit"
-	mapping["date_format"] = _guess_date_format(headers, body, mapping["date_select"])
+	mapping["date_format"] = _date_detection(headers, body, mapping["date_select"])["format"] or "Auto"
 	return mapping
 
 
 def _prepare(file_url, bank_account, mapping):
-	"""Read the file and return (headers, body, table-ready mapping)."""
-	headers, body = _read_file(file_url)
+	"""Read the file and return (headers, body, table-ready mapping, row numbers)."""
+	headers, body, row_numbers = _read_file(file_url)
 	mapping = parse_json_if_required(mapping)
 	mapping = {**mapping, "bank_account": bank_account}
 	width = len(headers)
@@ -174,7 +146,7 @@ def _prepare(file_url, bank_account, mapping):
 		mapping["reference_number_select"] = EMPTY_REFERENCE_HEADER
 	if not mapping.get("date_format"):
 		mapping["date_format"] = "Auto"
-	return headers, body, mapping
+	return headers, body, mapping, row_numbers
 
 
 @frappe.whitelist()
@@ -183,11 +155,11 @@ def parse_statement(file_url, bank_account):
 	require_bank_rec_permission()
 	assert_bank_account_access(bank_account)
 
-	headers, body = _read_file(file_url)
+	headers, body, _row_numbers = _read_file(file_url)
 	guessed = _guess_mapping(headers, body)
 
 	# the bank's saved mapping (from an earlier import) beats the guess
-	saved = start_import(file_url, bank_account).get("bank_mapping") or {}
+	saved = start_import(file_url, bank_account, include_rows=False).get("bank_mapping") or {}
 	saved_map = {
 		"date": "date_select",
 		"description": "description_select",
@@ -211,8 +183,22 @@ def parse_statement(file_url, bank_account):
 				withdrawal_select=saved["withdrawal"],
 				amount_select="",
 			)
-	if saved.get("date") in headers and saved.get("date_format") and saved["date_format"] != "Auto":
-		guessed["date_format"] = saved["date_format"]
+
+	# the dates decide the format. The saved format only breaks a tie: when every
+	# date is ambiguous (day and month both 12 or less) and the saved format is one
+	# of the two readings of this file's layout.
+	detection = _date_detection(headers, body, guessed["date_select"])
+	warnings = []
+	guessed["date_format"] = detection["format"] or "Auto"
+	saved_format = saved.get("date_format")
+	if (
+		detection["ambiguous"]
+		and saved.get("date") in headers
+		and saved_format in detection["candidates"]
+	):
+		guessed["date_format"] = saved_format
+	elif detection["warning"]:
+		warnings.append(detection["warning"])
 
 	return {
 		"headers": headers,
@@ -221,77 +207,43 @@ def parse_statement(file_url, bank_account):
 		"mapping": guessed,
 		"used_saved_mapping": bool(saved.get("date")),
 		"date_formats": DATE_FORMATS,
+		"warnings": warnings,
 	}
 
 
-def _table_rows(headers, body, mapping):
-	"""``build_table`` output without its header row, as dicts."""
-	table = build_table(mapping, headers, body)
+def _table_rows(headers, body, mapping, row_numbers=None):
+	"""``build_table`` output without its header row, as dicts, plus its report.
+
+	The report lists the rows that cannot be imported (``errors``), the rows
+	skipped for having no amount, warnings and the date format used. Duplicates
+	are not marked here, see ``_mark_duplicates``.
+	"""
+	table, report = build_table_with_report(
+		mapping, headers, body, row_numbers=row_numbers, check_duplicates=False
+	)
 	rows = []
-	for item in table[1:]:
+	for item, source_row in zip(table[1:], report["row_numbers"]):
 		rows.append(
 			{
-				"date": str(item[0]) if item[0] else None,
+				"source_row": source_row,
+				"date": str(item[0]),
 				"deposit": flt(item[1]),
 				"withdrawal": flt(item[2]),
 				"description": item[3],
 				"reference_number": item[4] if item[4] not in (None, "") else None,
 				"currency": item[6],
-				"duplicate": bool(item[7]),
-				"particulars": item[8] if len(item) > 8 else "",
-				"code": item[9] if len(item) > 9 else "",
-				"other_party": item[10] if len(item) > 10 else "",
+				"duplicate": False,
+				"particulars": item[8],
+				"code": item[9],
+				"other_party": item[10],
 			}
 		)
-	return rows
+	return rows, report
 
 
-def _row_key(date, deposit, withdrawal, reference, description):
-	return (
-		str(date),
-		round(flt(deposit), 3),
-		round(flt(withdrawal), 3),
-		str(reference or "").strip(),
-		str(description or "").strip(),
-	)
-
-
-def _mark_duplicates(rows, bank_account):
-	"""Flag every row that is already in the system.
-
-	Compared on date, amounts, reference and description, as stored (so after
-	the credit-card flip). Identical lines inside one file are real separate
-	transactions: with m copies already in the system, only the first m copies
-	in the file are duplicates.
-	"""
-	dated = [r["date"] for r in rows if r["date"]]
-	for row in rows:
-		row["duplicate"] = False
-	if not dated:
-		return rows
-
-	is_card = bool(frappe.db.get_value("Bank Account", bank_account, "is_credit_card"))
-	existing = Counter()
-	for item in frappe.get_all(
-		"Bank Transaction",
-		filters={
-			"bank_account": bank_account,
-			"docstatus": ["!=", 2],
-			"date": ["between", [min(dated), max(dated)]],
-		},
-		fields=["date", "deposit", "withdrawal", "reference_number", "description"],
-	):
-		existing[_row_key(item.date, item.deposit, item.withdrawal, item.reference_number, item.description)] += 1
-
-	for row in rows:
-		if not row["date"]:
-			continue
-		deposit, withdrawal = (row["withdrawal"], row["deposit"]) if is_card else (row["deposit"], row["withdrawal"])
-		key = _row_key(row["date"], deposit, withdrawal, row["reference_number"], row["description"])
-		if existing[key] > 0:
-			existing[key] -= 1
-			row["duplicate"] = True
-	return rows
+# one duplicate rule for this screen and for the desk importer: it lives in the importer
+_row_key = row_key
+_mark_duplicates = mark_duplicates
 
 
 @frappe.whitelist()
@@ -299,8 +251,9 @@ def preview_statement(file_url, bank_account, mapping):
 	"""Apply the mapping and report what an import would create."""
 	require_bank_rec_permission()
 	bank_account_doc = assert_bank_account_access(bank_account)
-	headers, body, mapping = _prepare(file_url, bank_account, mapping)
-	rows = _mark_duplicates(_table_rows(headers, body, mapping), bank_account)
+	headers, body, mapping, row_numbers = _prepare(file_url, bank_account, mapping)
+	rows, report = _table_rows(headers, body, mapping, row_numbers)
+	rows = _mark_duplicates(rows, bank_account)
 
 	is_card = bool(frappe.db.get_value("Bank Account", bank_account, "is_credit_card"))
 	new_rows = [r for r in rows if not r["duplicate"] and r["date"]]
@@ -309,7 +262,12 @@ def preview_statement(file_url, bank_account, mapping):
 		"is_credit_card": is_card,
 		"total": len(rows),
 		"duplicates": len([r for r in rows if r["duplicate"]]),
-		"missing_date": len([r for r in rows if not r["date"]]),
+		"missing_date": len([e for e in report["errors"] if e["field"] == "date"]),
+		"error_count": len(report["errors"]),
+		"errors": report["errors"][:MAX_ERRORS_SHOWN],
+		"skipped_zero": report["skipped_zero"],
+		"warnings": report["warnings"],
+		"date_format": report["date_format"],
 		"new_count": len(new_rows),
 		"deposit_total": sum(r["deposit"] for r in new_rows),
 		"withdrawal_total": sum(r["withdrawal"] for r in new_rows),
@@ -368,6 +326,10 @@ def run_import(
 		_run_import(
 			progress_id, file_url, bank_account, mapping, skip_duplicates, save_mapping, auto_reconcile, run_rules
 		)
+	except frappe.ValidationError as exc:
+		# a problem with the file or the mapping that the user can fix: say what it is
+		frappe.db.rollback()
+		set_job(progress_id, status="failed", message=str(exc)[:300])
 	except Exception:
 		frappe.db.rollback()
 		frappe.log_error(title="Bank Reco statement import failed", message=frappe.get_traceback())
@@ -376,16 +338,23 @@ def run_import(
 
 def _run_import(job_id, file_url, bank_account, mapping, skip_duplicates, save_mapping, auto_reconcile, run_rules):
 	set_job(job_id, status="running", stage="Reading the file")
-	headers, body, prepared = _prepare(file_url, bank_account, mapping)
-	rows = _mark_duplicates(_table_rows(headers, body, prepared), bank_account)
+	headers, body, prepared, row_numbers = _prepare(file_url, bank_account, mapping)
+	rows, report = _table_rows(headers, body, prepared, row_numbers)
+	rows = _mark_duplicates(rows, bank_account)
 	skip = is_truthy(skip_duplicates)
-	set_job(job_id, total=len(rows), stage="Creating bank transactions")
+	set_job(
+		job_id,
+		total=len(rows),
+		stage="Creating bank transactions",
+		warnings=report["warnings"],
+		skipped_zero=report["skipped_zero"],
+		date_format=report["date_format"],
+	)
 
-	imported, skipped, errors, dates = 0, 0, [], []
+	# rows that could not be read are reported with their row in the file
+	imported, skipped, errors, dates = 0, 0, [dict(e) for e in report["errors"]], []
 	for index, row in enumerate(rows, start=1):
-		if not row["date"]:
-			errors.append({"row": index, "message": _("Date could not be read.")})
-		elif skip and row["duplicate"]:
+		if skip and row["duplicate"]:
 			skipped += 1
 		else:
 			savepoint = "bank_reco_import_" + str(index)
@@ -414,7 +383,7 @@ def _run_import(job_id, file_url, bank_account, mapping, skip_duplicates, save_m
 				dates.append(row["date"])
 			except Exception as exc:
 				frappe.db.rollback(save_point=savepoint)
-				errors.append({"row": index, "message": str(exc)[:300]})
+				errors.append({"row": row["source_row"], "message": str(exc)[:300]})
 
 		if index % 20 == 0:
 			frappe.db.commit()
@@ -471,7 +440,7 @@ def _run_import(job_id, file_url, bank_account, mapping, skip_duplicates, save_m
 		imported=imported,
 		skipped_duplicates=skipped,
 		error_count=len(errors),
-		errors=errors[:50],
+		errors=sorted(errors, key=lambda e: e["row"])[:MAX_ERRORS_SHOWN],
 		from_date=str(min(dates)) if dates else None,
 		to_date=str(max(dates)) if dates else None,
 		**extras,

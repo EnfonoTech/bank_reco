@@ -339,7 +339,7 @@ frappe.ui.form.on('Bank Statement Importer', {
 					frappe.msgprint({
 						title: __('Warning'),
 						indicator: 'yellow',
-						message: __(`Duplicate records(${duplicates}) found. Please check and confirm the records prior to submission.`)
+						message: __(`Duplicate records(${duplicates}) found. They are already in the system and will be skipped on import.`)
 					});
 				}
 			}
