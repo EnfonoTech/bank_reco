@@ -92,8 +92,14 @@ th{background:#edf2f4}
   <li>Select the company and bank account.</li>
   <li><b>Drop the statement file</b> (CSV, XLSX or XLS) on the page, or click <b>Choose file</b>.</li>
   <li><b>Match the columns.</b> Date, description, amount (or deposit and withdrawal) are detected for you, and the layout you confirmed last time for this bank is reused. Fix any column that is wrong; set the date format if the dates look wrong.</li>
-  <li>Amounts can be one signed column, two columns, or text with a marker such as <code>1,250.00 CR</code> / <code>DR 99.50</code>. A CR/DR marker decides the column (CR = deposit, DR = withdrawal) whatever the sign says.</li>
-  <li><b>Preview import.</b> You see how many rows are new, how many already exist, the deposit and withdrawal totals and the date range. Duplicate rows are greyed out.</li>
+  <li>Amounts can be one signed column, two columns, or text with a marker such as <code>1,250.00 CR</code> / <code>DR 99.50</code>. A CR/DR marker decides the column (CR = deposit, DR = withdrawal) whatever the sign says. Both <code>1,250.50</code> and <code>1.250,50</code> are read correctly, <code>(1,250.00)</code> and <code>1,250.00-</code> are negative, and a currency symbol or code is ignored.</li>
+  <li>With <b>one signed amount column</b>, say whether a <b>positive amount is a Deposit or a Withdrawal</b> (a credit card statement is usually the other way round). Bank Reco remembers the choice for the bank together with the column layout.</li>
+  <li><b>Preview import.</b> You see how many rows are new, how many already exist, the deposit and withdrawal totals and the date range. Duplicate rows are greyed out (every row is checked, not only the first ones). The preview also lists:
+    <ul>
+      <li><b>Warnings</b>, for example when every date in the file could be read day-first or month-first (<i>03/04/2026</i>). Pick the right <b>date format</b> before importing; Bank Reco never guesses a month-first reading for you.</li>
+      <li><b>Rows with errors</b> (a date or amount that cannot be read, or a row with both a debit and a credit). The row number is shown; nothing is imported for that row.</li>
+      <li><b>Skipped rows</b> with a zero amount.</li>
+    </ul></li>
   <li>Tick <b>Remember this column layout</b> and click <b>Import</b>. The import runs on the server with a progress bar (a few hundred rows take a minute or two) and keeps going if you leave the page. Then <b>Reconcile these transactions</b> opens the Reconcile tab on the imported period.</li>
 </ol>
 <div class="tip">For a credit card account (<b>Credit Card</b> ticked on the Bank Account) deposits and withdrawals are swapped on import, and the preview tells you so.</div>
@@ -107,6 +113,11 @@ th{background:#edf2f4}
   <li>Tick one or several vouchers, adjust the allocated amount if needed, then <b>Reconcile</b>. For unpaid invoices the system creates the Payment Entry for you.</li>
   <li>A green banner appears with an <b>Undo</b> button for the action you just did.</li>
 </ol>
+<ul>
+  <li>A voucher is only called an <b>Amount</b> match when the amount, the direction (money in or out) and the currency all fit.</li>
+  <li>You cannot allocate more to a bank transaction than it has left, or more to a voucher than its bank leg holds.</li>
+  <li>A big selection of unpaid invoices runs as a background job. If some invoices cannot be paid, the screen says how many and shows the first reason; the transaction is reconciled with the payments that worked and the others stay unpaid. If the whole job fails, the Payment Entries <i>it created</i> are cancelled; vouchers you picked yourself are never touched.</li>
+</ul>
 <div class="tip">The <b>Update</b> tab edits the reference number, party type and party of the bank transaction. The <b>Details</b> tab shows the linked payments.</div>
 </section>
 
@@ -122,6 +133,7 @@ th{background:#edf2f4}
   <li>Bank Reco looks for the mirror transaction in another bank account: same company and currency, same amount, opposite direction, within the match window (Settings, default 4 days).</li>
   <li>Select it and click <b>Create transfer and reconcile</b>. One Internal Transfer Payment Entry is posted and <b>both</b> bank transactions are reconciled.</li>
   <li>If the other side has no imported transaction, enter the other Bank/Cash ledger account instead.</li>
+  <li>Both bank accounts must be in the same currency. When that currency is not the company currency, the exchange rate of the day is used; the transfer is refused if there is none.</li>
 </ol>
 </section>
 
@@ -146,7 +158,7 @@ th{background:#edf2f4}
 <tr><td>Date must be close (within N days)</td><td>Voucher posting date or reference date near the bank date. Default on, 5 days.</td></tr>
 <tr><td>Only when exactly one voucher qualifies</td><td>Otherwise the line is left for you. Default on.</td></tr>
 <tr><td>Also match unpaid invoices</td><td>Creates a Payment Entry for the invoice. Default off.</td></tr>
-<tr><td>Auto reconcile every hour</td><td>Runs on the last 45 days of every company bank account. Default off.</td></tr>
+<tr><td>Auto reconcile every hour</td><td>Queues a background job per company bank account for the last 45 days (the next hour's run waits while one is still going). The vouchers are logged as <b>Administrator</b>. Default off.</td></tr>
 </table>
 <p>On the <b>Import</b> tab you can also tick <b>Run auto rules afterwards</b> and <b>Auto reconcile afterwards</b> so a freshly imported statement reconciles itself. <b>Auto rules</b> (bank rules in Auto Execute mode, section 8) post new vouchers for charges and similar lines; <b>Auto reconcile</b> only links vouchers that already exist.</p>
 </section>
@@ -163,13 +175,13 @@ th{background:#edf2f4}
 <p>On the Rules tab you can also <b>Edit</b>, <b>Disable / Enable</b> and <b>Delete</b> a rule and move it up or down: rules are checked from the top and the first match wins. The mode of a rule is:</p>
 <table>
 <tr><th>Mode</th><th>What happens</th></tr>
-<tr><td><span class="pill">Auto Execute</span></td><td><b>Run auto rules</b> (Rules tab) creates and reconciles the voucher for every matching transaction in the date range. Asks for confirmation first.</td></tr>
+<tr><td><span class="pill">Auto Execute</span></td><td><b>Run auto rules</b> (Rules tab) creates and reconciles the voucher for every matching transaction in the date range. Asks for confirmation first. A transaction is <b>left alone</b> when a Suggest Only rule above it matches it first (it waits for your review), or when an existing voucher already matches it by the Auto reconcile settings (use Auto reconcile or the Match tab to link that one, so the money is not booked twice). The result tells you how many of each.</td></tr>
 <tr><td><span class="pill">Suggest Only</span></td><td>Nothing is posted. Matching transactions are flagged with the rule name. Select one and click <b>Apply</b> (posts it) or <b>Dismiss</b>.</td></tr>
 </table>
 <ul>
   <li><b>Run rules</b> (Reconcile) and <b>Suggest matches</b> (Rules) flag matches without posting anything.</li>
   <li>Settings &gt; <b>Evaluate bank rules hourly</b> does the flagging automatically; it never posts.</li>
-  <li>Rules are checked by priority (lowest number first); the first match wins.</li>
+  <li>Rules are checked by priority (lowest number first); the first match wins, whatever its mode.</li>
 </ul>
 <div class="warn">Test an Auto Execute rule on a few transactions first: it posts real vouchers. Everything it posts can be undone from History.</div>
 </section>
@@ -188,7 +200,7 @@ th{background:#edf2f4}
 
 <section id="balance">
 <h2>10. Statement balance</h2>
-<p>Type the closing balance printed on the statement into <b>Statement closing balance</b>. It is saved for that bank account and the <b>To</b> date, and shown again next time. The <b>Difference</b> card compares it with the ERP cleared balance and turns green (<i>Balanced</i>) when they agree. Clear the field to delete the saved value.</p>
+<p>Type the closing balance printed on the statement into <b>Statement closing balance</b>. It is saved for that bank account and the <b>To</b> date, and shown again next time. The <b>Difference</b> card compares it with the ERP cleared balance and turns green (<i>Balanced</i>) when they agree. Type it as the statement prints it (<code>1,250.50</code>, <code>1.250,50</code> and <code>(1,250.00)</code> all work); text that is not a number is refused. Clear the field to delete the saved value.</p>
 </section>
 
 <section id="reports">
@@ -224,6 +236,9 @@ th{background:#edf2f4}
 <tr><td>Undo is refused</td><td>Another voucher was linked to that transaction later. Unreconcile from the Matched tab.</td></tr>
 <tr><td>Selected amount exceeds the unallocated amount</td><td>Lower the allocation or untick a voucher.</td></tr>
 <tr><td>Rule never suggests</td><td>The rule must be enabled, belong to this bank account, and use the exact field names (Description, Deposit, Withdrawal ...). Click <b>Suggest matches</b> on the Rules tab.</td></tr>
+<tr><td>Auto rules did not post a transaction that matches a rule</td><td>A Suggest Only rule with a lower priority number matches it first (apply or dismiss the suggestion), or an existing voucher already matches it (reconcile it on the Match tab).</td></tr>
+<tr><td>Import warns that the date format is ambiguous</td><td>Every date could be read day-first or month-first. Choose the date format of the bank on the Import tab.</td></tr>
+<tr><td>Imported amounts are on the wrong side</td><td>For a single amount column, set <b>positive amount is</b> to Deposit or Withdrawal and import again. The choice is remembered for the bank.</td></tr>
 <tr><td>Progress dialog never closes</td><td>Check that the background worker is running; or switch off background reconciliation in Settings.</td></tr>
 </table>
 </section>

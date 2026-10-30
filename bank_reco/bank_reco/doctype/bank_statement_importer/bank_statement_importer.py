@@ -203,6 +203,11 @@ def start_import(file_path, bank_account, include_rows=True):
                 date_format = bank.bank_statement_date_format
             bank_mapping["date_format"] = date_format
 
+            # which side a positive amount is, for a statement with one amount column
+            positive_field = getattr(bank, "bank_statement_positive_field", None)
+            if positive_field in ("Deposit", "Withdrawal"):
+                bank_mapping["positive_field"] = positive_field
+
         except frappe.DoesNotExistError:
             frappe.throw(
                 _("Bank '{0}' linked to Bank Account '{1}' does not exist").format(
@@ -490,6 +495,16 @@ def save_bank_mapping_for_future_use(importer_data):
     date_format = importer_data.get("date_format")
     if date_format == "Auto" or date_format in DATE_FORMAT_PATTERNS:
         bank.bank_statement_date_format = date_format
+
+    # a single amount column carries its sign: remember which side a positive amount is,
+    # otherwise the next import silently reads every row the other way round
+    positive_field = importer_data.get("positive_field")
+    if (
+        is_truthy(importer_data.get("same_amount_field"))
+        and positive_field in ("Deposit", "Withdrawal")
+        and bank.meta.has_field("bank_statement_positive_field")
+    ):
+        bank.bank_statement_positive_field = positive_field
 
     bank.save(ignore_permissions=True)
 
