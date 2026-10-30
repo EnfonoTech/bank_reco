@@ -247,16 +247,37 @@ def start_auto_reconcile(bank_account, from_date=None, to_date=None, dry_run=1):
 
 
 def scheduled_auto_reconcile():
-	"""Hourly job (off by default): auto reconcile the last 45 days of every company bank account."""
+	"""Hourly job (off by default): queue an auto reconcile of the last 45 days of every company bank account.
+
+	One long-queue job per bank account. Running them here would hold the scheduler's worker, with its
+	short timeout, for the whole loop, and one slow account would stop the rest. A run still queued or
+	running for an account is not queued a second time. The system user has no owner of its own: the
+	entries are logged as Administrator.
+	"""
 	if not _single_flag("auto_reconcile_hourly"):
 		return
 	today = getdate()
 	for bank_account in frappe.get_all("Bank Account", filters={"is_company_account": 1}, pluck="name"):
-		job_id = new_job("auto_reconcile", bank_account=bank_account, dry_run=False)
 		try:
-			run_auto_reconcile(job_id, "Administrator", bank_account, add_days(today, -45), today, False)
+			job_id = new_job("auto_reconcile", bank_account=bank_account, dry_run=False)
+			frappe.enqueue(
+				"bank_reco.api.auto_match.run_auto_reconcile",
+				queue="long",
+				timeout=JOB_TIMEOUT,
+				job_id="bank_reco_auto_hourly_" + frappe.scrub(bank_account),
+				deduplicate=True,
+				progress_id=job_id,
+				user="Administrator",
+				bank_account=bank_account,
+				from_date=add_days(today, -45),
+				to_date=today,
+				dry_run=False,
+			)
 		except Exception:
-			frappe.log_error(title="Bank Reco hourly auto reconcile failed", message=frappe.get_traceback())
+			frappe.log_error(
+				title="Bank Reco hourly auto reconcile: could not queue " + str(bank_account),
+				message=frappe.get_traceback(),
+			)
 
 
 def _single_flag(field):

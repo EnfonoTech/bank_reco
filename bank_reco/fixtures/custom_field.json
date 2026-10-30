@@ -54,6 +54,24 @@
   "width": null
  },
  {
+  "allow_on_submit": 0,
+  "default": null,
+  "depends_on": null,
+  "description": "Single amount column: which side a positive amount is (saved with the column mapping)",
+  "docstatus": 0,
+  "doctype": "Custom Field",
+  "dt": "Bank",
+  "fieldname": "bank_statement_positive_field",
+  "fieldtype": "Select",
+  "insert_after": "bank_statement_date_format",
+  "label": "Bank Statement Positive Amount Is",
+  "modified": "2026-10-30 00:00:00.000000",
+  "name": "Bank-bank_statement_positive_field",
+  "options": "\nDeposit\nWithdrawal",
+  "permlevel": 0,
+  "reqd": 0
+ },
+ {
   "doctype": "Custom Field",
   "dt": "Bank Transaction",
   "fieldname": "custom_particulars",

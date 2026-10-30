@@ -2057,7 +2057,11 @@ def process_bulk_reconciliation(bank_transaction_name, invoices, regular_voucher
 			
 			# Process this batch
 			batch_vouchers = []
-			for invoice_data in batch:
+			for offset, invoice_data in enumerate(batch):
+				# the batch is committed as a whole: a failed invoice must not leave a half-made
+				# Payment Entry (inserted, not submitted) in it
+				savepoint = "bank_reco_bulk_" + str(batch_start + offset)
+				frappe.db.savepoint(savepoint)
 				try:
 					invoice_name = invoice_data.get("name")
 					invoice_type = invoice_data.get("doctype")
@@ -2101,10 +2105,12 @@ def process_bulk_reconciliation(bank_transaction_name, invoices, regular_voucher
 						"payment_name": payment_entry.name,
 						"amount": allocated_amount,
 					})
+					frappe.db.release_savepoint(savepoint)
 
 					processed += 1
 					
 				except Exception as e:
+					frappe.db.rollback(save_point=savepoint)
 					logger.exception("Error processing invoice %s: %s", invoice_data.get("name"), str(e))
 					failed += 1
 					if first_error is None:

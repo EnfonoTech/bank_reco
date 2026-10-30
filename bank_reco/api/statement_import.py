@@ -183,6 +183,8 @@ def parse_statement(file_url, bank_account):
 				withdrawal_select=saved["withdrawal"],
 				amount_select="",
 			)
+	if saved.get("positive_field") in ("Deposit", "Withdrawal") and guessed.get("same_amount_field"):
+		guessed["positive_field"] = saved["positive_field"]
 
 	# the dates decide the format. The saved format only breaks a tie: when every
 	# date is ambiguous (day and month both 12 or less) and the saved format is one

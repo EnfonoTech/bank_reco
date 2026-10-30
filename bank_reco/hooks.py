@@ -261,7 +261,7 @@ fixtures = [
         "dt": "Custom Field",
         "filters": [
             ["dt", "=", "Bank"],
-            ["fieldname", "in", ["bank_statement_date_format"]],
+            ["fieldname", "in", ["bank_statement_date_format", "bank_statement_positive_field"]],
         ],
     },
     {

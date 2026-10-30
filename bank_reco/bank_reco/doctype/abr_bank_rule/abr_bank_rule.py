@@ -6,7 +6,7 @@ import operator as op
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import flt, getdate
 
 from bank_reco.api.permission import (
 	assert_bank_account_access,
@@ -151,7 +151,9 @@ def run_bank_rules(bank_account, from_date, to_date):
 		frappe.throw("Bank account, from date and to date are required")
 
 	transactions = get_bank_transactions(bank_account, from_date, to_date)
-	rules = _load_rules(bank_account, action_mode=AUTO_EXECUTE)
+	# both modes: the first rule that matches wins, so a Suggest Only rule holds the
+	# transaction back from every Auto Execute rule below it
+	rules = _load_rules(bank_account)
 	batch_id = new_batch_id()
 
 	logger.info(
@@ -165,6 +167,8 @@ def run_bank_rules(bank_account, from_date, to_date):
 	unmatched_count = 0
 	error_count = 0
 	skipped_count = 0
+	held_count = 0
+	existing_count = 0
 
 	for txn_summary in transactions:
 		matched_rule = None
@@ -174,7 +178,13 @@ def run_bank_rules(bank_account, from_date, to_date):
 				skipped_count += 1
 				continue
 			matched_rule = _match_transaction(transaction, rules, logger)
-			if matched_rule:
+			if matched_rule and _rule_mode(matched_rule) != AUTO_EXECUTE:
+				matched_rule = None
+				held_count += 1
+			elif matched_rule and has_existing_voucher_match(transaction):
+				matched_rule = None
+				existing_count += 1
+			elif matched_rule:
 				_execute_rule_action(transaction, matched_rule, logger, batch_id=batch_id)
 				frappe.db.commit()
 				matched_count += 1
@@ -208,6 +218,10 @@ def run_bank_rules(bank_account, from_date, to_date):
 		skipped_count,
 		error_count,
 	)
+	if held_count:
+		result_msg += ". %s held for review by a Suggest Only rule" % held_count
+	if existing_count:
+		result_msg += ". %s left alone because an existing voucher already matches" % existing_count
 	logger.info(
 		"Bank Rules Result: %s matched, %s unmatched, %s skipped, %s errors",
 		matched_count, unmatched_count, skipped_count, error_count,
@@ -221,7 +235,22 @@ def run_bank_rules(bank_account, from_date, to_date):
 		"unmatched": unmatched_count,
 		"skipped": skipped_count,
 		"errors": error_count,
+		"held_for_review": held_count,
+		"existing_voucher": existing_count,
 	}
+
+
+def has_existing_voucher_match(transaction):
+	"""True when an existing voucher already clearly matches the transaction.
+
+	Judged by the Auto Reconcile settings (amount plus the enabled reference, party and
+	date criteria), so a rule never posts a second voucher for money that has one waiting.
+	"""
+	from bank_reco.api.auto_match import get_auto_match_settings, qualifying_candidates
+
+	return bool(
+		qualifying_candidates(transaction.name, getdate(transaction.date), get_auto_match_settings())
+	)
 
 
 @frappe.whitelist()
